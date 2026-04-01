@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth/auth-context";
+import { EditorShell } from "@/features/editor/editor-shell";
 import {
   createDocument,
   deleteDocument,
@@ -333,10 +334,16 @@ export function DocumentShell() {
                 </div>
               </div>
 
-              <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-border bg-background/40 p-10 text-sm text-muted-foreground">
-                Step 6 intentionally stops at document management UI. The editor
-                area will be implemented in the next step.
-              </div>
+              {viewMode === "active" ? (
+                <EditorShell
+                  documentId={selectedDocument.id}
+                  initialContent={selectedDocument.contentJson}
+                />
+              ) : (
+                <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-border bg-background/40 p-10 text-sm text-muted-foreground">
+                  Restore this document to continue editing it.
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex h-full min-h-[60vh] items-center justify-center rounded-2xl border border-dashed border-border text-sm text-muted-foreground">
@@ -348,4 +355,3 @@ export function DocumentShell() {
     </main>
   );
 }
-

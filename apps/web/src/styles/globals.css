@@ -107,3 +107,44 @@ p {
   margin: 0;
   line-height: 1.5;
 }
+
+.ProseMirror {
+  min-height: 420px;
+}
+
+.ProseMirror:focus {
+  outline: none;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: oklch(0.58 0.008 286);
+  pointer-events: none;
+}
+
+.ProseMirror h1 {
+  margin: 0 0 1rem;
+  font-size: 2rem;
+  line-height: 1.2;
+}
+
+.ProseMirror p,
+.ProseMirror ul,
+.ProseMirror pre {
+  margin: 0 0 1rem;
+}
+
+.ProseMirror ul {
+  padding-left: 1.25rem;
+}
+
+.ProseMirror pre {
+  overflow-x: auto;
+  border: 1px solid oklch(0.3 0.008 286);
+  border-radius: 1rem;
+  background: oklch(0.15 0.006 286);
+  padding: 1rem;
+  font-size: 0.9rem;
+}
