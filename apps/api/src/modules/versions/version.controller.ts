@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import {
   listDocumentVersions,
+  saveCurrentDocumentVersion,
   restoreDocumentVersion
 } from "./version.service.js";
 
@@ -40,12 +41,46 @@ export async function restoreDocumentVersionHandler(
     return;
   }
 
+  if (result.status === "forbidden") {
+    response.status(403).json({ message: "Read-only access cannot restore versions" });
+    return;
+  }
+
   if (result.status === "version-not-found") {
     response.status(404).json({ message: "Version not found" });
     return;
   }
 
   response.json({ document: result.document });
+}
+
+export async function saveCurrentDocumentVersionHandler(
+  request: Request,
+  response: Response
+) {
+  const userId = request.authUser!.id;
+  const documentId = getParam(request.params.id);
+  const result = await saveCurrentDocumentVersion({
+    documentId,
+    userId
+  });
+
+  if (result.status === "document-not-found") {
+    response.status(404).json({ message: "Document not found" });
+    return;
+  }
+
+  if (result.status === "no-changes") {
+    response.status(200).json({ status: "no-changes" });
+    return;
+  }
+
+  if (result.status === "forbidden") {
+    response.status(403).json({ message: "Read-only access cannot save versions" });
+    return;
+  }
+
+  response.status(201).json({ status: "saved" });
 }
 
 function getParam(value: string | string[] | undefined) {
@@ -55,4 +90,3 @@ function getParam(value: string | string[] | undefined) {
 
   return Array.isArray(value) ? value[0] : value;
 }
-

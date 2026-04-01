@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "./auth-context";
 
 export function RequireAuth() {
@@ -16,7 +17,8 @@ export function RequireAuth() {
 
   if (isLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background px-4">
+      <main className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4">
+        <Spinner className="size-8 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">Checking your session...</p>
       </main>
     );
@@ -28,7 +30,13 @@ export function RequireAuth() {
       toast.info("Please sign in to continue");
     }
 
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: `${location.pathname}${location.search}` }}
+      />
+    );
   }
 
   return <Outlet />;

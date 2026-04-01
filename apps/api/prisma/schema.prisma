@@ -8,30 +8,47 @@ datasource db {
 }
 
 model User {
-  id           String            @id @default(cuid())
-  email        String            @unique
-  passwordHash String
-  name         String
-  documents    Document[]
-  versions     DocumentVersion[] @relation("VersionCreatedBy")
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  passwordHash        String
+  name                String
+  documents           Document[]           @relation("OwnedDocuments")
+  documentMemberships DocumentMembership[]
+  versions            DocumentVersion[]    @relation("VersionCreatedBy")
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 }
 
 model Document {
-  id                String            @id @default(cuid())
-  ownerId           String
-  owner             User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  title             String
-  contentJson       Json?
-  collaborationState Bytes?
-  versions          DocumentVersion[]
-  deletedAt         DateTime?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  id                       String               @id @default(cuid())
+  ownerId                  String
+  owner                    User                 @relation("OwnedDocuments", fields: [ownerId], references: [id], onDelete: Cascade)
+  title                    String
+  contentJson              Json?
+  collaborationState       Bytes?
+  isCollaborationEnabled   Boolean              @default(false)
+  isCollaborationReadOnly  Boolean              @default(false)
+  collaborationPasswordHash String?
+  collaborators            DocumentMembership[]
+  versions                 DocumentVersion[]
+  deletedAt                DateTime?
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
 
   @@index([ownerId, updatedAt])
   @@index([ownerId, deletedAt])
+}
+
+model DocumentMembership {
+  id         String   @id @default(cuid())
+  documentId String
+  userId     String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([documentId, userId])
+  @@index([userId, createdAt])
 }
 
 model DocumentVersion {

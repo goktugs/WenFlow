@@ -14,3 +14,27 @@ export const updateDocumentSchema = z.object({
       message: "At least one field must be provided"
     }
   );
+
+export const updateDocumentCollaborationSchema = z
+  .object({
+    enabled: z.boolean(),
+    password: z.string().trim().min(4).max(200).optional(),
+    readOnly: z.boolean().optional()
+  })
+  .superRefine((value, context) => {
+    if (
+      value.enabled &&
+      typeof value.readOnly === "undefined" &&
+      !value.password
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["password"],
+        message: "Password is required when collaboration is enabled"
+      });
+    }
+  });
+
+export const joinSharedDocumentSchema = z.object({
+  password: z.string().trim().min(4).max(200)
+});

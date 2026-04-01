@@ -3,12 +3,25 @@ import { prisma } from "../../lib/prisma.js";
 
 const VERSION_INTERVAL_MS = 5 * 60 * 1000;
 
+function getAccessibleDocumentWhere(documentId: string, userId: string) {
+  return {
+    id: documentId,
+    OR: [
+      { ownerId: userId },
+      {
+        collaborators: {
+          some: {
+            userId
+          }
+        }
+      }
+    ]
+  } satisfies Prisma.DocumentWhereInput;
+}
+
 export async function listDocumentVersions(documentId: string, ownerId: string) {
   const document = await prisma.document.findFirst({
-    where: {
-      id: documentId,
-      ownerId
-    },
+    where: getAccessibleDocumentWhere(documentId, ownerId),
     select: {
       id: true
     }
@@ -33,6 +46,61 @@ export async function listDocumentVersions(documentId: string, ownerId: string) 
       createdByUserId: true
     }
   });
+}
+
+export async function saveCurrentDocumentVersion(input: {
+  documentId: string;
+  userId: string;
+}) {
+  const document = await prisma.document.findFirst({
+    where: getAccessibleDocumentWhere(input.documentId, input.userId),
+    select: {
+      id: true,
+      title: true,
+      contentJson: true,
+      ownerId: true,
+      isCollaborationReadOnly: true
+    }
+  });
+
+  if (!document) {
+    return { status: "document-not-found" as const };
+  }
+
+  if (document.ownerId !== input.userId && document.isCollaborationReadOnly) {
+    return { status: "forbidden" as const };
+  }
+
+  const lastVersion = await prisma.documentVersion.findFirst({
+    where: {
+      documentId: input.documentId
+    },
+    orderBy: {
+      versionNumber: "desc"
+    },
+    select: {
+      titleSnapshot: true,
+      contentSnapshot: true
+    }
+  });
+
+  const matchesLatestSnapshot =
+    lastVersion?.titleSnapshot === document.title &&
+    JSON.stringify(lastVersion.contentSnapshot ?? null) ===
+      JSON.stringify(document.contentJson ?? null);
+
+  if (matchesLatestSnapshot) {
+    return { status: "no-changes" as const };
+  }
+
+  await createDocumentVersion({
+    documentId: document.id,
+    createdByUserId: input.userId,
+    titleSnapshot: document.title,
+    contentSnapshot: document.contentJson
+  });
+
+  return { status: "saved" as const };
 }
 
 export async function maybeCreateDocumentVersion(input: {
@@ -128,19 +196,22 @@ export async function restoreDocumentVersion(input: {
   restoredByUserId: string;
 }) {
   const document = await prisma.document.findFirst({
-    where: {
-      id: input.documentId,
-      ownerId: input.ownerId
-    },
+    where: getAccessibleDocumentWhere(input.documentId, input.ownerId),
     select: {
       id: true,
       title: true,
-      contentJson: true
+      contentJson: true,
+      ownerId: true,
+      isCollaborationReadOnly: true
     }
   });
 
   if (!document) {
     return { status: "document-not-found" as const };
+  }
+
+  if (document.ownerId !== input.ownerId && document.isCollaborationReadOnly) {
+    return { status: "forbidden" as const };
   }
 
   const version = await prisma.documentVersion.findFirst({
@@ -188,7 +259,8 @@ export async function restoreDocumentVersion(input: {
       },
       data: {
         title: version.titleSnapshot,
-        contentJson: toPrismaJsonValue(version.contentSnapshot)
+        contentJson: toPrismaJsonValue(version.contentSnapshot),
+        collaborationState: null
       }
     });
   });

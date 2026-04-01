@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,13 +11,14 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, user } = useAuth();
+  const locationSearch = useMemo(() => location.search, [location.search]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (user) {
-    return <Navigate to="/app" replace />;
+    return <Navigate to={`/app${locationSearch}`} replace />;
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -54,7 +55,7 @@ export function LoginPage() {
     <AuthPageShell
       title="Sign in"
       description="Use your email and password to continue."
-      alternateHref="/register"
+      alternateHref={`/register${locationSearch}`}
       alternateLabel="Create an account"
       alternateText="Need a workspace?"
     >

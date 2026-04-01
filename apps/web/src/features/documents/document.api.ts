@@ -76,6 +76,44 @@ export async function restoreDocument(token: string, id: string) {
   return result.document;
 }
 
+export async function updateDocumentCollaboration(
+  token: string,
+  id: string,
+  input: {
+    enabled: boolean;
+    password?: string;
+    readOnly?: boolean;
+  }
+) {
+  const result = await apiRequest<{ document: DocumentDetail }>(
+    `/documents/${id}/collaboration`,
+    {
+      method: "PATCH",
+      token,
+      body: input
+    }
+  );
+
+  return result.document;
+}
+
+export async function joinSharedDocument(
+  token: string,
+  id: string,
+  password: string
+) {
+  const result = await apiRequest<{ document: DocumentDetail }>(
+    `/documents/${id}/join`,
+    {
+      method: "POST",
+      token,
+      body: { password }
+    }
+  );
+
+  return result.document;
+}
+
 export async function listDocumentVersions(token: string, id: string) {
   const result = await apiRequest<{ versions: DocumentVersion[] }>(
     `/documents/${id}/versions`,
@@ -85,6 +123,18 @@ export async function listDocumentVersions(token: string, id: string) {
   );
 
   return result.versions;
+}
+
+export async function saveDocumentVersion(token: string, id: string) {
+  const result = await apiRequest<{ status: "saved" | "no-changes" }>(
+    `/documents/${id}/versions`,
+    {
+      method: "POST",
+      token
+    }
+  );
+
+  return result.status;
 }
 
 export async function restoreDocumentVersion(
