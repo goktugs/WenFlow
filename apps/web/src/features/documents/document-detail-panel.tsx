@@ -41,6 +41,7 @@ type DocumentDetailPanelProps = {
   onCopyShareLink: () => void;
   onEnableCollaboration: () => void;
   onDisableCollaboration: () => void;
+  onUpdateShareMode: () => void;
   onSaveVersion: () => void;
   onRestoreVersion: (versionId: string) => void;
   onPresenceChange: (users: PresenceUser[]) => void;
@@ -80,6 +81,7 @@ export function DocumentDetailPanel({
   onCopyShareLink,
   onEnableCollaboration,
   onDisableCollaboration,
+  onUpdateShareMode,
   onSaveVersion,
   onRestoreVersion,
   onPresenceChange,
@@ -218,6 +220,23 @@ export function DocumentDetailPanel({
                             />
                           </div>
                         </div>
+                        {selectedDocument.isCollaborationEnabled ? (
+                          <div className="mt-3 flex justify-end">
+                            <Button
+                              disabled={isUpdatingCollaboration}
+                              onClick={onUpdateShareMode}
+                              size="sm"
+                              variant="outline"
+                            >
+                              {isUpdatingCollaboration ? (
+                                <Spinner className="size-4" />
+                              ) : null}
+                              {isUpdatingCollaboration
+                                ? "Updating..."
+                                : "Update share mode"}
+                            </Button>
+                          </div>
+                        ) : null}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {selectedDocument.isCollaborationEnabled

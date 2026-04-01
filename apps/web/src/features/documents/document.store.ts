@@ -91,6 +91,7 @@ type DocumentStoreState = {
   ) => Promise<void>;
   enableCollaboration: (token: string, document: DocumentDetail) => Promise<void>;
   disableCollaboration: (token: string, document: DocumentDetail) => Promise<void>;
+  updateShareMode: (token: string, document: DocumentDetail) => Promise<void>;
   restoreVersion: (token: string, document: DocumentDetail, versionId: string) => Promise<void>;
   saveVersion: (token: string, document: DocumentDetail) => Promise<void>;
 };
@@ -382,6 +383,28 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       toast.error(
         error instanceof Error ? error.message : "Unable to update collaboration"
       );
+    } finally {
+      set({ isUpdatingCollaboration: false });
+    }
+  },
+  async updateShareMode(token, document) {
+    const { collaborationReadOnly } = get();
+
+    set({ isUpdatingCollaboration: true });
+
+    try {
+      const updatedDocument = await updateDocumentCollaboration(token, document.id, {
+        enabled: true,
+        readOnly: collaborationReadOnly
+      });
+      toast.success("Share mode updated");
+      set({
+        selectedDocument: updatedDocument,
+        collaborationReadOnly: updatedDocument.isCollaborationReadOnly
+      });
+      get().syncDocumentInList(updatedDocument);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to update share mode");
     } finally {
       set({ isUpdatingCollaboration: false });
     }

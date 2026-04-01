@@ -79,6 +79,7 @@ export function DocumentShell() {
   const disableCollaborationAction = useDocumentStore(
     (state) => state.disableCollaboration
   );
+  const updateShareModeAction = useDocumentStore((state) => state.updateShareMode);
   const restoreVersionAction = useDocumentStore((state) => state.restoreVersion);
   const saveVersionAction = useDocumentStore((state) => state.saveVersion);
 
@@ -142,6 +143,11 @@ export function DocumentShell() {
 
       if (!hasAccess && useDocumentStore.getState().selectedId === selectedId) {
         useDocumentStore.getState().setSelectedId(null);
+        return;
+      }
+
+      if (hasAccess && useDocumentStore.getState().selectedId === selectedId) {
+        await loadSelectedDocument(token, selectedId);
       }
     };
 
@@ -157,7 +163,8 @@ export function DocumentShell() {
     shareDocumentId,
     syncState,
     token,
-    viewMode
+    viewMode,
+    loadSelectedDocument
   ]);
 
   const selectedDocumentMeta = useMemo(
@@ -273,6 +280,14 @@ export function DocumentShell() {
     await disableCollaborationAction(token, selectedDocument);
   }
 
+  async function handleUpdateShareMode() {
+    if (!token || !selectedDocument || !selectedDocument.isOwner) {
+      return;
+    }
+
+    await updateShareModeAction(token, selectedDocument);
+  }
+
   async function handleRestoreVersion(versionId: string) {
     if (!token || !selectedDocument) {
       return;
@@ -323,6 +338,7 @@ export function DocumentShell() {
           onDeleteDocument={handleDeleteDocument}
           onDisableCollaboration={handleDisableCollaboration}
           onEnableCollaboration={handleEnableCollaboration}
+          onUpdateShareMode={handleUpdateShareMode}
           onPresenceChange={setPresentUsers}
           onRenameDocument={handleRenameDocument}
           onRenameValueChange={setRenameValue}

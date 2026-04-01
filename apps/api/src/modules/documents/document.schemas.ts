@@ -22,7 +22,11 @@ export const updateDocumentCollaborationSchema = z
     readOnly: z.boolean().optional()
   })
   .superRefine((value, context) => {
-    if (value.enabled && !value.password) {
+    if (
+      value.enabled &&
+      typeof value.readOnly === "undefined" &&
+      !value.password
+    ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["password"],

@@ -137,9 +137,7 @@ export async function updateDocumentCollaborationHandler(
       return;
     }
 
-    if (!input.enabled) {
-      await disconnectCollaborators(documentId, ownerId);
-    }
+    await disconnectCollaborators(documentId, ownerId);
 
     response.json({ document: result.document });
   } catch (error) {

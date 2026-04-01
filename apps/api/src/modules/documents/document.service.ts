@@ -333,14 +333,9 @@ export async function updateDocumentCollaborationSettings(input: {
   if (input.enabled) {
     const password = input.password?.trim();
 
-    if (!password) {
+    if (!password && !document.isCollaborationEnabled) {
       throw new Error("COLLABORATION_PASSWORD_REQUIRED");
     }
-
-    const passwordHash = await bcrypt.hash(
-      password,
-      COLLABORATION_PASSWORD_SALT_ROUNDS
-    );
 
     await prisma.document.update({
       where: {
@@ -349,7 +344,14 @@ export async function updateDocumentCollaborationSettings(input: {
       data: {
         isCollaborationEnabled: true,
         isCollaborationReadOnly: input.readOnly ?? false,
-        collaborationPasswordHash: passwordHash
+        ...(password
+          ? {
+              collaborationPasswordHash: await bcrypt.hash(
+                password,
+                COLLABORATION_PASSWORD_SALT_ROUNDS
+              )
+            }
+          : {})
       }
     });
   } else {
