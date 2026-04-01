@@ -1,7 +1,7 @@
 import { env } from "./env";
 
 type RequestOptions = {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   token?: string | null;
 };
@@ -30,4 +30,3 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}) 
 
   return data as T;
 }
-
