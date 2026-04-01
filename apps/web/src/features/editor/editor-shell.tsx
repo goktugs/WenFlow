@@ -94,7 +94,7 @@ export function EditorShell({
         .map(
           (state) =>
             state.user as
-              | { id?: string; label?: string; color?: string }
+              | { id?: string; label?: string; name?: string; color?: string }
               | undefined
         )
         .filter(
@@ -102,16 +102,28 @@ export function EditorShell({
             awarenessUser
           ): awarenessUser is {
             id: string;
-            label: string;
+            label?: string;
+            name?: string;
             color: string;
           } =>
             Boolean(
-              awarenessUser?.id && awarenessUser.label && awarenessUser.color
+              awarenessUser?.id &&
+                (awarenessUser.label || awarenessUser.name) &&
+                awarenessUser.color
             )
         );
 
       const uniqueUsers = Array.from(
-        new Map(users.map((awarenessUser) => [awarenessUser.id, awarenessUser])).values()
+        new Map(
+          users.map((awarenessUser) => [
+            awarenessUser.id,
+            {
+              id: awarenessUser.id,
+              label: awarenessUser.label ?? awarenessUser.name ?? "Guest",
+              color: awarenessUser.color
+            }
+          ])
+        ).values()
       );
 
       onPresenceChange(uniqueUsers);
