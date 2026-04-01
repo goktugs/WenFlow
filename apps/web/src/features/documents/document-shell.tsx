@@ -39,6 +39,10 @@ export function DocumentShell() {
   const syncState = useDocumentStore((state) => state.syncState);
   const presentUsers = useDocumentStore((state) => state.presentUsers);
   const versions = useDocumentStore((state) => state.versions);
+  const editorRestoreNonce = useDocumentStore((state) => state.editorRestoreNonce);
+  const editorRestoreContent = useDocumentStore(
+    (state) => state.editorRestoreContent
+  );
 
   const setViewMode = useDocumentStore((state) => state.setViewMode);
   const setSelectedId = useDocumentStore((state) => state.setSelectedId);
@@ -242,6 +246,8 @@ export function DocumentShell() {
           presentUsers={presentUsers}
           renameValue={renameValue}
           restoringVersionId={restoringVersionId}
+          editorRestoreContent={editorRestoreContent}
+          editorRestoreNonce={editorRestoreNonce}
           selectedDocument={selectedDocument}
           selectedId={selectedId}
           syncState={syncState}

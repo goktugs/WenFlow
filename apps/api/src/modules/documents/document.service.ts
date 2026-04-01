@@ -261,7 +261,10 @@ export async function updateDocument(
     data: {
       ...(typeof input.title !== "undefined" ? { title: nextTitle } : {}),
       ...(typeof input.contentJson !== "undefined"
-        ? { contentJson: input.contentJson as Prisma.InputJsonValue }
+        ? {
+            contentJson: input.contentJson as Prisma.InputJsonValue,
+            collaborationState: null
+          }
         : {})
     }
   });

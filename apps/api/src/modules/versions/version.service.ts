@@ -198,7 +198,8 @@ export async function restoreDocumentVersion(input: {
       },
       data: {
         title: version.titleSnapshot,
-        contentJson: toPrismaJsonValue(version.contentSnapshot)
+        contentJson: toPrismaJsonValue(version.contentSnapshot),
+        collaborationState: null
       }
     });
   });

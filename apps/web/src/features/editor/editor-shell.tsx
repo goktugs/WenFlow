@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import { EditorContent, useEditor } from "@tiptap/react";
+import type { JSONContent } from "@tiptap/core";
 import Placeholder from "@tiptap/extension-placeholder";
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
@@ -19,6 +20,8 @@ type SlashCommand = {
 
 type EditorShellProps = {
   documentId: string;
+  restoredContent: unknown | null;
+  restoreNonce: number;
   token: string;
   user: {
     id: string;
@@ -47,6 +50,8 @@ type SlashState = {
 
 export function EditorShell({
   documentId,
+  restoredContent,
+  restoreNonce,
   token,
   user,
   syncState,
@@ -56,6 +61,7 @@ export function EditorShell({
   const [slashState, setSlashState] = useState<SlashState | null>(null);
   const localUserColor = useMemo(() => getUserColor(user.id), [user.id]);
   const editorWrapperRef = useRef<HTMLDivElement | null>(null);
+  const lastAppliedRestoreNonceRef = useRef(0);
 
   const buildPresenceUsers = (
     awarenessStates: Map<number, { user?: unknown }>
@@ -249,6 +255,20 @@ export function EditorShell({
     }
     setSlashState(null);
   }, [documentId, editor]);
+
+  useEffect(() => {
+    if (!editor || restoreNonce === 0) {
+      return;
+    }
+
+    if (lastAppliedRestoreNonceRef.current === restoreNonce) {
+      return;
+    }
+
+    lastAppliedRestoreNonceRef.current = restoreNonce;
+    editor.commands.setContent(normalizeEditorContent(restoredContent), true);
+    setSlashState(null);
+  }, [editor, restoreNonce, restoredContent]);
 
   const commands = useMemo<SlashCommand[]>(() => {
     if (!editor || !slashState) {
@@ -480,4 +500,24 @@ function replaceSlashQuery(
   range: { from: number; to: number }
 ) {
   editor.chain().focus().deleteRange(range).insertContent("").run();
+}
+
+function normalizeEditorContent(content: unknown): JSONContent {
+  if (
+    content &&
+    typeof content === "object" &&
+    "type" in content &&
+    typeof content.type === "string"
+  ) {
+    return content as JSONContent;
+  }
+
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "paragraph"
+      }
+    ]
+  };
 }

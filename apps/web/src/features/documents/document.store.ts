@@ -49,6 +49,8 @@ type DocumentStoreState = {
   syncState: SyncState;
   presentUsers: PresenceUser[];
   versions: DocumentVersion[];
+  editorRestoreNonce: number;
+  editorRestoreContent: unknown | null;
   setViewMode: (viewMode: ViewMode) => void;
   setSelectedId: (selectedId: string | null) => void;
   setRenameValue: (renameValue: string) => void;
@@ -110,6 +112,8 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   syncState: "connecting",
   presentUsers: [],
   versions: [],
+  editorRestoreNonce: 0,
+  editorRestoreContent: null,
   setViewMode(viewMode) {
     set({ viewMode });
   },
@@ -140,7 +144,9 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       syncState: "connecting",
       presentUsers: [],
       versions: [],
-      restoringVersionId: null
+      restoringVersionId: null,
+      editorRestoreNonce: 0,
+      editorRestoreContent: null
     });
   },
   syncDocumentInList(nextDocument) {
@@ -206,7 +212,9 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
         renameValue: document.title,
         collaborationPassword: "",
         syncState: "connecting",
-        presentUsers: []
+        presentUsers: [],
+        editorRestoreNonce: 0,
+        editorRestoreContent: null
       });
     } catch (error) {
       const message =
@@ -373,7 +381,9 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       toast.success("Version restored");
       set({
         selectedDocument: restoredDocument,
-        renameValue: restoredDocument.title
+        renameValue: restoredDocument.title,
+        editorRestoreNonce: Date.now(),
+        editorRestoreContent: restoredDocument.contentJson ?? null
       });
       get().syncDocumentInList(restoredDocument);
       const nextVersions = await listDocumentVersions(token, restoredDocument.id);

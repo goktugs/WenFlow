@@ -23,6 +23,8 @@ type DocumentDetailPanelProps = {
   versions: DocumentVersion[];
   isRestoringVersion: boolean;
   restoringVersionId: string | null;
+  editorRestoreNonce: number;
+  editorRestoreContent: unknown | null;
   syncState: SyncState;
   token: string;
   user: AuthUser;
@@ -56,6 +58,8 @@ export function DocumentDetailPanel({
   versions,
   isRestoringVersion,
   restoringVersionId,
+  editorRestoreNonce,
+  editorRestoreContent,
   syncState,
   token,
   user,
@@ -236,6 +240,8 @@ export function DocumentDetailPanel({
           {viewMode !== "trash" ? (
             <EditorShell
               documentId={selectedDocument.id}
+              restoredContent={editorRestoreContent}
+              restoreNonce={editorRestoreNonce}
               onPresenceChange={onPresenceChange}
               onSyncStateChange={onSyncStateChange}
               syncState={syncState}
