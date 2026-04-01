@@ -1,8 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import * as Y from "yjs";
+import { HocuspocusProvider } from "@hocuspocus/provider";
 import { EditorContent, useEditor } from "@tiptap/react";
 import Placeholder from "@tiptap/extension-placeholder";
+import Collaboration from "@tiptap/extension-collaboration";
 import StarterKit from "@tiptap/starter-kit";
 import { Button } from "@/components/ui/button";
+import { env } from "@/lib/env";
 
 type SlashCommand = {
   id: "paragraph" | "heading" | "bullet" | "code";
@@ -14,9 +18,11 @@ type SlashCommand = {
 
 type EditorShellProps = {
   documentId: string;
-  initialContent: unknown;
-  onContentChange: (contentJson: unknown) => void;
-  saveState: "idle" | "saving" | "saved" | "error";
+  token: string;
+  syncState: "connecting" | "connected" | "disconnected" | "error";
+  onSyncStateChange: (
+    nextState: "connecting" | "connected" | "disconnected" | "error"
+  ) => void;
 };
 
 type SlashState = {
@@ -26,21 +32,60 @@ type SlashState = {
 
 export function EditorShell({
   documentId,
-  initialContent,
-  onContentChange,
-  saveState
+  token,
+  syncState,
+  onSyncStateChange
 }: EditorShellProps) {
   const [slashState, setSlashState] = useState<SlashState | null>(null);
-  const hydratedDocumentIdRef = useRef<string | null>(null);
+  const resources = useMemo(() => {
+    const ydoc = new Y.Doc();
+    const provider = new HocuspocusProvider({
+      url: env.collabUrl,
+      name: documentId,
+      document: ydoc,
+      token,
+      onOpen() {
+        onSyncStateChange("connecting");
+      },
+      onConnect() {
+        onSyncStateChange("connecting");
+      },
+      onSynced() {
+        onSyncStateChange("connected");
+      },
+      onDisconnect() {
+        onSyncStateChange("disconnected");
+      },
+      onClose() {
+        onSyncStateChange("disconnected");
+      },
+      onAuthenticationFailed() {
+        onSyncStateChange("error");
+      }
+    });
+
+    return { ydoc, provider };
+  }, [documentId, onSyncStateChange, token]);
+
+  useEffect(() => {
+    return () => {
+      resources.provider.destroy();
+      resources.ydoc.destroy();
+    };
+  }, [resources]);
 
   const editor = useEditor(
     {
       immediatelyRender: false,
       extensions: [
         StarterKit.configure({
+          history: false,
           heading: {
             levels: [1, 2]
           }
+        }),
+        Collaboration.configure({
+          document: resources.ydoc
         }),
         Placeholder.configure({
           placeholder:
@@ -53,51 +98,22 @@ export function EditorShell({
             "min-h-[420px] rounded-2xl border border-border bg-background/70 px-5 py-4 text-[15px] leading-7 text-foreground outline-none"
         }
       },
-      content: isTiptapDocument(initialContent)
-        ? initialContent
-        : {
-            type: "doc",
-            content: [
-              {
-                type: "paragraph"
-              }
-            ]
-          },
       onSelectionUpdate: ({ editor: currentEditor }) => {
         setSlashState(getSlashState(currentEditor));
       },
       onUpdate: ({ editor: currentEditor }) => {
         setSlashState(getSlashState(currentEditor));
-        onContentChange(currentEditor.getJSON());
       }
     },
-    [documentId]
+    [documentId, resources]
   );
 
   useEffect(() => {
     if (!editor) {
       return;
     }
-
-    if (hydratedDocumentIdRef.current === documentId) {
-      return;
-    }
-
-    const nextContent = isTiptapDocument(initialContent)
-      ? initialContent
-      : {
-          type: "doc",
-          content: [
-            {
-              type: "paragraph"
-            }
-          ]
-        };
-
-    editor.commands.setContent(nextContent);
-    hydratedDocumentIdRef.current = documentId;
     setSlashState(null);
-  }, [documentId, editor, initialContent]);
+  }, [documentId, editor]);
 
   const commands = useMemo<SlashCommand[]>(() => {
     if (!editor || !slashState) {
@@ -180,13 +196,13 @@ export function EditorShell({
           </p>
         </div>
         <div className="rounded-full border border-border bg-background/70 px-3 py-1 text-xs text-muted-foreground">
-          {saveState === "saving"
-            ? "Saving..."
-            : saveState === "saved"
-              ? "Saved"
-              : saveState === "error"
-                ? "Save failed"
-                : "Idle"}
+          {syncState === "connecting"
+            ? "Syncing..."
+            : syncState === "connected"
+              ? "Live"
+              : syncState === "error"
+                ? "Connection failed"
+                : "Offline"}
         </div>
       </div>
 
@@ -276,13 +292,4 @@ function replaceSlashQuery(
   range: { from: number; to: number }
 ) {
   editor.chain().focus().deleteRange(range).insertContent("").run();
-}
-
-function isTiptapDocument(value: unknown): value is Record<string, unknown> {
-  return Boolean(
-    value &&
-      typeof value === "object" &&
-      "type" in value &&
-      (value as { type?: unknown }).type === "doc"
-  );
 }
