@@ -4,7 +4,8 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "noEmit": false,
-    "outDir": "dist"
+    "outDir": "dist",
+    "typeRoots": ["../../node_modules/@types", "./src/types"]
   },
   "include": ["src"]
 }
