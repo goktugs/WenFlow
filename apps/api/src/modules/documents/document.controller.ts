@@ -96,6 +96,8 @@ export async function deleteDocumentHandler(
     return;
   }
 
+  await disconnectCollaborators(documentId, ownerId);
+
   response.status(204).send();
 }
 

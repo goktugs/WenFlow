@@ -81,6 +81,7 @@ const server = new Server({
             ownerId: payload.sub
           },
           {
+            deletedAt: null,
             collaborators: {
               some: {
                 userId: payload.sub
@@ -119,6 +120,7 @@ const server = new Server({
             ownerId: data.context.user.id
           },
           {
+            deletedAt: null,
             collaborators: {
               some: {
                 userId: data.context.user.id

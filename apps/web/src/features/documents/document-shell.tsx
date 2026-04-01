@@ -50,6 +50,7 @@ export function DocumentShell() {
 
   const setViewMode = useDocumentStore((state) => state.setViewMode);
   const setSelectedId = useDocumentStore((state) => state.setSelectedId);
+  const clearSelection = useDocumentStore((state) => state.clearSelection);
   const setRenameValue = useDocumentStore((state) => state.setRenameValue);
   const setJoinPassword = useDocumentStore((state) => state.setJoinPassword);
   const setCollaborationPassword = useDocumentStore(
@@ -142,7 +143,7 @@ export function DocumentShell() {
         .documents.some((document) => document.id === selectedId);
 
       if (!hasAccess && useDocumentStore.getState().selectedId === selectedId) {
-        useDocumentStore.getState().setSelectedId(null);
+        clearSelection();
         return;
       }
 
@@ -164,6 +165,7 @@ export function DocumentShell() {
     syncState,
     token,
     viewMode,
+    clearSelection,
     loadSelectedDocument
   ]);
 

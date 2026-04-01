@@ -33,6 +33,7 @@ type DocumentStoreState = {
   documents: DocumentListItem[];
   selectedId: string | null;
   selectedDocument: DocumentDetail | null;
+  preserveEmptySelection: boolean;
   renameValue: string;
   joinPassword: string;
   collaborationPassword: string;
@@ -56,6 +57,7 @@ type DocumentStoreState = {
   editorRestoreContent: unknown | null;
   setViewMode: (viewMode: ViewMode) => void;
   setSelectedId: (selectedId: string | null) => void;
+  clearSelection: () => void;
   setRenameValue: (renameValue: string) => void;
   setJoinPassword: (joinPassword: string) => void;
   setCollaborationPassword: (collaborationPassword: string) => void;
@@ -101,6 +103,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   documents: [],
   selectedId: null,
   selectedDocument: null,
+  preserveEmptySelection: false,
   renameValue: "",
   joinPassword: "",
   collaborationPassword: "",
@@ -126,7 +129,21 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
     set({ viewMode });
   },
   setSelectedId(selectedId) {
-    set({ selectedId });
+    set({
+      selectedId,
+      preserveEmptySelection: selectedId === null
+    });
+  },
+  clearSelection() {
+    set({
+      selectedId: null,
+      selectedDocument: null,
+      preserveEmptySelection: true,
+      renameValue: "",
+      detailError: null,
+      presentUsers: [],
+      versions: []
+    });
   },
   setRenameValue(renameValue) {
     set({ renameValue });
@@ -193,6 +210,8 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
         selectedId:
           nextDocuments.length === 0
             ? null
+            : state.preserveEmptySelection
+              ? null
             : shareDocumentId &&
                 nextDocuments.some((document) => document.id === shareDocumentId)
               ? shareDocumentId
@@ -201,7 +220,9 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
                 ? state.selectedId
                 : nextDocuments[0].id,
         selectedDocument: nextDocuments.length === 0 ? null : state.selectedDocument,
-        renameValue: nextDocuments.length === 0 ? "" : state.renameValue
+        renameValue: nextDocuments.length === 0 ? "" : state.renameValue,
+        preserveEmptySelection:
+          nextDocuments.length === 0 ? false : state.preserveEmptySelection
       }));
     } catch (error) {
       const message =
@@ -263,7 +284,8 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       toast.success("Document created");
       set({
         viewMode: "my-docs",
-        selectedId: document.id
+        selectedId: document.id,
+        preserveEmptySelection: false
       });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to create document");
@@ -282,7 +304,8 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       set({
         joinPassword: "",
         viewMode: "my-docs",
-        selectedId: document.id
+        selectedId: document.id,
+        preserveEmptySelection: false
       });
       navigateToApp();
     } catch (error) {
