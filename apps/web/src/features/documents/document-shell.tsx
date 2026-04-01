@@ -158,6 +158,30 @@ export function DocumentShell() {
     () => documents.find((document) => document.id === selectedId) ?? null,
     [documents, selectedId]
   );
+  const displayedDocuments = useMemo(() => {
+    if (!selectedId || !selectedDocument?.isOwner) {
+      return documents;
+    }
+
+    return documents.map((document) =>
+      document.id === selectedId
+        ? {
+            ...document,
+            title: renameValue || document.title
+          }
+        : document
+    );
+  }, [documents, renameValue, selectedDocument?.isOwner, selectedId]);
+  const displayedSelectedDocument = useMemo(() => {
+    if (!selectedDocument || !selectedDocument.isOwner) {
+      return selectedDocument;
+    }
+
+    return {
+      ...selectedDocument,
+      title: renameValue || selectedDocument.title
+    };
+  }, [renameValue, selectedDocument]);
 
   async function handleCreateDocument() {
     if (!token) {
@@ -263,7 +287,7 @@ export function DocumentShell() {
     <main className="min-h-screen bg-background p-4">
       <div className="mx-auto grid min-h-[calc(100vh-2rem)] max-w-7xl grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
         <DocumentSidebar
-          documents={documents}
+          documents={displayedDocuments}
           isLoadingList={isLoadingList}
           isMutating={isMutating}
           listError={listError}
@@ -304,7 +328,7 @@ export function DocumentShell() {
           restoringVersionId={restoringVersionId}
           editorRestoreContent={editorRestoreContent}
           editorRestoreNonce={editorRestoreNonce}
-          selectedDocument={selectedDocument}
+          selectedDocument={displayedSelectedDocument}
           selectedId={selectedId}
           syncState={syncState}
           token={token ?? ""}
