@@ -3,12 +3,25 @@ import { prisma } from "../../lib/prisma.js";
 
 const VERSION_INTERVAL_MS = 5 * 60 * 1000;
 
+function getAccessibleDocumentWhere(documentId: string, userId: string) {
+  return {
+    id: documentId,
+    OR: [
+      { ownerId: userId },
+      {
+        collaborators: {
+          some: {
+            userId
+          }
+        }
+      }
+    ]
+  } satisfies Prisma.DocumentWhereInput;
+}
+
 export async function listDocumentVersions(documentId: string, ownerId: string) {
   const document = await prisma.document.findFirst({
-    where: {
-      id: documentId,
-      ownerId
-    },
+    where: getAccessibleDocumentWhere(documentId, ownerId),
     select: {
       id: true
     }
@@ -128,10 +141,7 @@ export async function restoreDocumentVersion(input: {
   restoredByUserId: string;
 }) {
   const document = await prisma.document.findFirst({
-    where: {
-      id: input.documentId,
-      ownerId: input.ownerId
-    },
+    where: getAccessibleDocumentWhere(input.documentId, input.ownerId),
     select: {
       id: true,
       title: true,

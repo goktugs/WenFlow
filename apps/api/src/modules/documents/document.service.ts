@@ -1,54 +1,119 @@
+import bcrypt from "bcryptjs";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { maybeCreateDocumentVersion } from "../versions/version.service.js";
 
+const COLLABORATION_PASSWORD_SALT_ROUNDS = 12;
+
 type DocumentListParams = {
-  ownerId: string;
+  userId: string;
   includeDeleted: boolean;
 };
 
-export async function listDocuments({
-  ownerId,
-  includeDeleted
-}: DocumentListParams) {
-  return prisma.document.findMany({
-    where: {
-      ownerId,
-      ...(includeDeleted
-        ? { deletedAt: { not: null } }
-        : { deletedAt: null })
-    },
-    orderBy: {
-      updatedAt: "desc"
-    },
+type SelectedDocumentRecord = {
+  id: string;
+  title: string;
+  contentJson: unknown;
+  deletedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  ownerId: string;
+  isCollaborationEnabled: boolean;
+  owner: {
+    id: string;
+    name: string;
+    email: string;
+  };
+};
+
+function getAccessibleDocumentWhere(id: string, userId: string) {
+  return {
+    id,
+    OR: [
+      { ownerId: userId },
+      {
+        collaborators: {
+          some: {
+            userId
+          }
+        }
+      }
+    ]
+  } satisfies Prisma.DocumentWhereInput;
+}
+
+function getAccessibleDocumentsWhere(userId: string, includeDeleted: boolean) {
+  return {
+    ...(includeDeleted
+      ? { deletedAt: { not: null } }
+      : { deletedAt: null }),
+    OR: [
+      { ownerId: userId },
+      {
+        collaborators: {
+          some: {
+            userId
+          }
+        }
+      }
+    ]
+  } satisfies Prisma.DocumentWhereInput;
+}
+
+function mapDocumentSummary(
+  document: Omit<SelectedDocumentRecord, "contentJson"> & { contentJson?: unknown }
+) {
+  return {
+    id: document.id,
+    title: document.title,
+    deletedAt: document.deletedAt,
+    createdAt: document.createdAt,
+    updatedAt: document.updatedAt,
+    owner: document.owner,
+    isOwner: document.ownerId === document.owner.id,
+    isCollaborationEnabled: document.isCollaborationEnabled
+  };
+}
+
+function mapDocumentDetail(document: SelectedDocumentRecord, userId: string) {
+  return {
+    id: document.id,
+    title: document.title,
+    contentJson: document.contentJson,
+    deletedAt: document.deletedAt,
+    createdAt: document.createdAt,
+    updatedAt: document.updatedAt,
+    owner: document.owner,
+    isOwner: document.ownerId === userId,
+    isCollaborationEnabled: document.isCollaborationEnabled,
+    accessCode: document.isCollaborationEnabled ? document.id : null
+  };
+}
+
+async function findAccessibleDocument(id: string, userId: string) {
+  return prisma.document.findFirst({
+    where: getAccessibleDocumentWhere(id, userId),
     select: {
       id: true,
       title: true,
+      contentJson: true,
       deletedAt: true,
       createdAt: true,
-      updatedAt: true
+      updatedAt: true,
+      ownerId: true,
+      isCollaborationEnabled: true,
+      owner: {
+        select: {
+          id: true,
+          name: true,
+          email: true
+        }
+      }
     }
   });
 }
 
-export async function createDocument(ownerId: string, title?: string) {
-  return prisma.document.create({
-    data: {
-      ownerId,
-      title: title?.trim() || "Untitled",
-      contentJson: Prisma.JsonNull
-    },
-    select: {
-      id: true,
-      title: true,
-      deletedAt: true,
-      createdAt: true,
-      updatedAt: true
-    }
-  });
-}
-
-export async function getDocumentById(id: string, ownerId: string) {
+async function findOwnedDocument(id: string, ownerId: string) {
   return prisma.document.findFirst({
     where: {
       id,
@@ -60,26 +125,94 @@ export async function getDocumentById(id: string, ownerId: string) {
       contentJson: true,
       deletedAt: true,
       createdAt: true,
-      updatedAt: true
+      updatedAt: true,
+      ownerId: true,
+      isCollaborationEnabled: true,
+      owner: {
+        select: {
+          id: true,
+          name: true,
+          email: true
+        }
+      }
     }
   });
 }
 
-export async function renameDocument(id: string, ownerId: string, title: string) {
-  return prisma.document.updateMany({
-    where: {
-      id,
-      ownerId
+export async function listDocuments({ userId, includeDeleted }: DocumentListParams) {
+  const documents = await prisma.document.findMany({
+    where: getAccessibleDocumentsWhere(userId, includeDeleted),
+    orderBy: {
+      updatedAt: "desc"
     },
-    data: {
-      title: title.trim()
+    select: {
+      id: true,
+      title: true,
+      deletedAt: true,
+      createdAt: true,
+      updatedAt: true,
+      ownerId: true,
+      isCollaborationEnabled: true,
+      owner: {
+        select: {
+          id: true,
+          name: true,
+          email: true
+        }
+      }
     }
   });
+
+  return documents.map((document) => ({
+    ...mapDocumentSummary(document),
+    isOwner: document.ownerId === userId
+  }));
+}
+
+export async function createDocument(ownerId: string, title?: string) {
+  const document = await prisma.document.create({
+    data: {
+      ownerId,
+      title: title?.trim() || "Untitled",
+      contentJson: Prisma.JsonNull
+    },
+    select: {
+      id: true,
+      title: true,
+      deletedAt: true,
+      createdAt: true,
+      updatedAt: true,
+      ownerId: true,
+      isCollaborationEnabled: true,
+      owner: {
+        select: {
+          id: true,
+          name: true,
+          email: true
+        }
+      }
+    }
+  });
+
+  return {
+    ...mapDocumentSummary(document),
+    isOwner: true
+  };
+}
+
+export async function getDocumentById(id: string, userId: string) {
+  const document = await findAccessibleDocument(id, userId);
+
+  if (!document) {
+    return null;
+  }
+
+  return mapDocumentDetail(document, userId);
 }
 
 export async function updateDocument(
   id: string,
-  ownerId: string,
+  userId: string,
   input: {
     title?: string;
     contentJson?: unknown;
@@ -87,19 +220,21 @@ export async function updateDocument(
   }
 ) {
   const currentDocument = await prisma.document.findFirst({
-    where: {
-      id,
-      ownerId
-    },
+    where: getAccessibleDocumentWhere(id, userId),
     select: {
       id: true,
       title: true,
-      contentJson: true
+      contentJson: true,
+      ownerId: true
     }
   });
 
   if (!currentDocument) {
-    return { count: 0 };
+    return { status: "not-found" as const };
+  }
+
+  if (typeof input.title !== "undefined" && currentDocument.ownerId !== userId) {
+    return { status: "forbidden" as const };
   }
 
   const nextTitle =
@@ -111,7 +246,7 @@ export async function updateDocument(
 
   await maybeCreateDocumentVersion({
     documentId: currentDocument.id,
-    ownerId,
+    ownerId: currentDocument.ownerId,
     createdByUserId: input.createdByUserId,
     previousTitle: currentDocument.title,
     previousContent: currentDocument.contentJson,
@@ -119,10 +254,9 @@ export async function updateDocument(
     nextContent
   });
 
-  return prisma.document.updateMany({
+  await prisma.document.update({
     where: {
-      id,
-      ownerId
+      id: currentDocument.id
     },
     data: {
       ...(typeof input.title !== "undefined" ? { title: nextTitle } : {}),
@@ -131,6 +265,8 @@ export async function updateDocument(
         : {})
     }
   });
+
+  return { status: "updated" as const };
 }
 
 export async function softDeleteDocument(id: string, ownerId: string) {
@@ -157,4 +293,126 @@ export async function restoreDocument(id: string, ownerId: string) {
       deletedAt: null
     }
   });
+}
+
+export async function updateDocumentCollaborationSettings(input: {
+  documentId: string;
+  ownerId: string;
+  enabled: boolean;
+  password?: string;
+}) {
+  const document = await findOwnedDocument(input.documentId, input.ownerId);
+
+  if (!document) {
+    return { status: "not-found" as const };
+  }
+
+  if (input.enabled) {
+    const password = input.password?.trim();
+
+    if (!password) {
+      throw new Error("COLLABORATION_PASSWORD_REQUIRED");
+    }
+
+    const passwordHash = await bcrypt.hash(
+      password,
+      COLLABORATION_PASSWORD_SALT_ROUNDS
+    );
+
+    await prisma.document.update({
+      where: {
+        id: document.id
+      },
+      data: {
+        isCollaborationEnabled: true,
+        collaborationPasswordHash: passwordHash
+      }
+    });
+  } else {
+    await prisma.$transaction([
+      prisma.document.update({
+        where: {
+          id: document.id
+        },
+        data: {
+          isCollaborationEnabled: false,
+          collaborationPasswordHash: null
+        }
+      }),
+      prisma.documentMembership.deleteMany({
+        where: {
+          documentId: document.id
+        }
+      })
+    ]);
+  }
+
+  const updatedDocument = await getDocumentById(document.id, input.ownerId);
+
+  return {
+    status: "updated" as const,
+    document: updatedDocument
+  };
+}
+
+export async function joinSharedDocument(input: {
+  documentId: string;
+  userId: string;
+  password: string;
+}) {
+  const document = await prisma.document.findFirst({
+    where: {
+      id: input.documentId,
+      deletedAt: null
+    },
+    select: {
+      id: true,
+      ownerId: true,
+      isCollaborationEnabled: true,
+      collaborationPasswordHash: true
+    }
+  });
+
+  if (!document || !document.isCollaborationEnabled) {
+    return { status: "not-found" as const };
+  }
+
+  if (document.ownerId === input.userId) {
+    const ownerDocument = await getDocumentById(document.id, input.userId);
+
+    return {
+      status: "joined" as const,
+      document: ownerDocument
+    };
+  }
+
+  const isPasswordValid = await bcrypt.compare(
+    input.password,
+    document.collaborationPasswordHash ?? ""
+  );
+
+  if (!isPasswordValid) {
+    return { status: "invalid-password" as const };
+  }
+
+  await prisma.documentMembership.upsert({
+    where: {
+      documentId_userId: {
+        documentId: document.id,
+        userId: input.userId
+      }
+    },
+    update: {},
+    create: {
+      documentId: document.id,
+      userId: input.userId
+    }
+  });
+
+  const joinedDocument = await getDocumentById(document.id, input.userId);
+
+  return {
+    status: "joined" as const,
+    document: joinedDocument
+  };
 }

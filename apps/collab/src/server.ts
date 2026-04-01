@@ -43,7 +43,18 @@ const server = new Server({
     const document = await prisma.document.findFirst({
       where: {
         id: data.documentName,
-        ownerId: payload.sub
+        OR: [
+          {
+            ownerId: payload.sub
+          },
+          {
+            collaborators: {
+              some: {
+                userId: payload.sub
+              }
+            }
+          }
+        ]
       },
       select: {
         id: true
@@ -65,7 +76,18 @@ const server = new Server({
     const document = await prisma.document.findFirst({
       where: {
         id: data.documentName,
-        ownerId: data.context.user.id
+        OR: [
+          {
+            ownerId: data.context.user.id
+          },
+          {
+            collaborators: {
+              some: {
+                userId: data.context.user.id
+              }
+            }
+          }
+        ]
       },
       select: {
         contentJson: true,
@@ -110,8 +132,7 @@ const server = new Server({
 
     await prisma.document.updateMany({
       where: {
-        id: data.documentName,
-        ownerId: data.context.user.id
+        id: data.documentName
       },
       data: {
         contentJson,
