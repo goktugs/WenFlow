@@ -30,7 +30,12 @@ type EditorShellProps = {
     nextState: "connecting" | "connected" | "disconnected" | "error"
   ) => void;
   onPresenceChange: (
-    users: Array<{ id: string; label: string; color: string }>
+    users: Array<{
+      id: string;
+      label: string;
+      color: string;
+      status: "viewing" | "editing";
+    }>
   ) => void;
 };
 
@@ -84,8 +89,10 @@ export function EditorShell({
 
     awareness.setLocalStateField("user", {
       id: user.id,
+      name: user.name || user.email.split("@")[0],
       label: user.name || user.email.split("@")[0],
-      color: localUserColor
+      color: localUserColor,
+      status: "viewing"
     });
 
     const handleAwarenessChange = () => {
@@ -94,7 +101,13 @@ export function EditorShell({
         .map(
           (state) =>
             state.user as
-              | { id?: string; label?: string; name?: string; color?: string }
+              | {
+                  id?: string;
+                  label?: string;
+                  name?: string;
+                  color?: string;
+                  status?: "viewing" | "editing";
+                }
               | undefined
         )
         .filter(
@@ -105,6 +118,7 @@ export function EditorShell({
             label?: string;
             name?: string;
             color: string;
+            status?: "viewing" | "editing";
           } =>
             Boolean(
               awarenessUser?.id &&
@@ -120,7 +134,8 @@ export function EditorShell({
             {
               id: awarenessUser.id,
               label: awarenessUser.label ?? awarenessUser.name ?? "Guest",
-              color: awarenessUser.color
+              color: awarenessUser.color,
+              status: awarenessUser.status ?? "viewing"
             }
           ])
         ).values()
@@ -172,7 +187,32 @@ export function EditorShell({
       editorProps: {
         attributes: {
           class:
-            "min-h-[420px] rounded-2xl border border-border bg-background/70 px-5 py-4 text-[15px] leading-7 text-foreground outline-none"
+            "min-h-[420px] rounded-2xl border border-border bg-background/70 px-5 py-4 text-[15px] leading-7 text-foreground outline-none",
+          style: `caret-color: ${localUserColor};`
+        },
+        handleDOMEvents: {
+          focus: () => {
+            resources.provider.awareness?.setLocalStateField("user", {
+              id: user.id,
+              name: user.name || user.email.split("@")[0],
+              label: user.name || user.email.split("@")[0],
+              color: localUserColor,
+              status: "editing"
+            });
+
+            return false;
+          },
+          blur: () => {
+            resources.provider.awareness?.setLocalStateField("user", {
+              id: user.id,
+              name: user.name || user.email.split("@")[0],
+              label: user.name || user.email.split("@")[0],
+              color: localUserColor,
+              status: "viewing"
+            });
+
+            return false;
+          }
         }
       },
       onSelectionUpdate: ({ editor: currentEditor }) => {
