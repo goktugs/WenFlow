@@ -47,9 +47,8 @@ const server = new Server({
     }
 
     const authHeader = data.request.headers.authorization ?? "";
-    const expectedToken = `Bearer ${jwtSecret}`;
 
-    if (authHeader !== expectedToken) {
+    if (authHeader !== `Bearer ${jwtSecret}`) {
       data.response.writeHead(401, { "Content-Type": "application/json" });
       data.response.end(JSON.stringify({ message: "Unauthorized" }));
       throw null;
@@ -297,6 +296,7 @@ function closeCollaboratorConnections(
         code: 4403,
         reason: "Collaboration disabled by the owner"
       });
+      connection.webSocket.close(4403, "Collaboration disabled by the owner");
     }
   });
 }

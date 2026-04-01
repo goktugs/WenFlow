@@ -110,6 +110,50 @@ export function DocumentShell() {
     void loadVersions(token, selectedId);
   }, [loadSelectedDocument, loadVersions, resetSelectionState, selectedId, token]);
 
+  useEffect(() => {
+    if (
+      !token ||
+      !selectedId ||
+      !selectedDocument ||
+      selectedDocument.isOwner ||
+      (syncState !== "disconnected" && syncState !== "error")
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const refreshAccess = async () => {
+      await loadDocuments(token, viewMode, shareDocumentId);
+
+      if (cancelled) {
+        return;
+      }
+
+      const hasAccess = useDocumentStore
+        .getState()
+        .documents.some((document) => document.id === selectedId);
+
+      if (!hasAccess && useDocumentStore.getState().selectedId === selectedId) {
+        useDocumentStore.getState().setSelectedId(null);
+      }
+    };
+
+    void refreshAccess();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    loadDocuments,
+    selectedDocument,
+    selectedId,
+    shareDocumentId,
+    syncState,
+    token,
+    viewMode
+  ]);
+
   const selectedDocumentMeta = useMemo(
     () => documents.find((document) => document.id === selectedId) ?? null,
     [documents, selectedId]
