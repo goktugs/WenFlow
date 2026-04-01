@@ -66,7 +66,12 @@ export function DocumentShell() {
     "connecting" | "connected" | "disconnected" | "error"
   >("connecting");
   const [presentUsers, setPresentUsers] = useState<
-    Array<{ id: string; label: string; color: string }>
+    Array<{
+      id: string;
+      label: string;
+      color: string;
+      status: "viewing" | "editing";
+    }>
   >([]);
   const [versions, setVersions] = useState<DocumentVersion[]>([]);
   const shareDocumentId = useMemo(() => {
@@ -705,7 +710,10 @@ export function DocumentShell() {
                             backgroundColor: `${presenceUser.color}1A`
                           }}
                         >
-                          {presenceUser.label}
+                          {presenceUser.label} ·{" "}
+                          {presenceUser.status === "editing"
+                            ? "Editing"
+                            : "Viewing"}
                         </span>
                       ))
                     ) : (
