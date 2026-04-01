@@ -19,6 +19,7 @@ const prisma = new PrismaClient();
 const port = Number(process.env.COLLAB_PORT ?? 4001);
 const jwtSecret = process.env.JWT_SECRET;
 const VERSION_INTERVAL_MS = 5 * 60 * 1000;
+const skipStoreUntilByDocument = new Map<string, number>();
 
 if (!jwtSecret) {
   throw new Error("JWT_SECRET is required");
@@ -36,6 +37,7 @@ const tiptapExtensions = [
 
 const server = new Server({
   port,
+  debounce: 2000,
   async onRequest(data) {
     const requestUrl = new URL(data.request.url ?? "/", "http://localhost");
     const match = requestUrl.pathname.match(
@@ -54,7 +56,7 @@ const server = new Server({
       throw null;
     }
 
-    const ownerId = await readOwnerIdFromRequest(data.request);
+    const { ownerId, closeOwner, reason } = await readDisconnectRequest(data.request);
 
     if (!ownerId) {
       data.response.writeHead(400, { "Content-Type": "application/json" });
@@ -62,7 +64,10 @@ const server = new Server({
       throw null;
     }
 
-    closeCollaboratorConnections(data.instance, match[1], ownerId);
+    closeCollaboratorConnections(data.instance, match[1], ownerId, {
+      closeOwner,
+      reason
+    });
     data.response.writeHead(200, { "Content-Type": "application/json" });
     data.response.end(JSON.stringify({ status: "ok" }));
     throw null;
@@ -112,6 +117,9 @@ const server = new Server({
     };
   },
   async onLoadDocument(data) {
+    clearExpiredStoreSkips();
+    skipStoreUntilByDocument.delete(data.documentName);
+
     const document = await prisma.document.findFirst({
       where: {
         id: data.documentName,
@@ -147,7 +155,7 @@ const server = new Server({
 
     if (document.contentJson) {
       return TiptapTransformer.toYdoc(
-        document.contentJson as Record<string, unknown>,
+        sanitizeEditorDocument(document.contentJson),
         "default",
         tiptapExtensions
       );
@@ -167,6 +175,14 @@ const server = new Server({
     );
   },
   async onStoreDocument(data) {
+    clearExpiredStoreSkips();
+
+    const skipStoreUntil = skipStoreUntilByDocument.get(data.documentName);
+
+    if (typeof skipStoreUntil === "number" && skipStoreUntil > Date.now()) {
+      return;
+    }
+
     const contentJson = TiptapTransformer.fromYdoc(data.document);
     const collaborationState = Buffer.from(Y.encodeStateAsUpdate(data.document));
     const createdByUserId =
@@ -281,10 +297,197 @@ function toPrismaJsonValue(value: unknown) {
     : (value as Prisma.InputJsonValue | undefined);
 }
 
+function sanitizeEditorDocument(content: unknown): Record<string, unknown> {
+  // Handle hocuspocus fromYdoc wrapper: { default: { type: "doc", ... } }
+  if (isRecord(content) && !content.type && isRecord(content.default)) {
+    return sanitizeEditorDocument(content.default);
+  }
+
+  if (isRecord(content) && content.type === "doc") {
+    return {
+      type: "doc",
+      content: sanitizeBlockNodes(content.content)
+    };
+  }
+
+  if (Array.isArray(content)) {
+    return {
+      type: "doc",
+      content: sanitizeBlockNodes(content)
+    };
+  }
+
+  if (isRecord(content) && Array.isArray(content.content)) {
+    return {
+      type: "doc",
+      content: sanitizeBlockNodes(content.content)
+    };
+  }
+
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "paragraph"
+      }
+    ]
+  };
+}
+
+function sanitizeBlockNodes(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) {
+    return [{ type: "paragraph" }];
+  }
+
+  const nodes: Array<Record<string, unknown>> = [];
+  let inlineBuffer: Array<Record<string, unknown>> = [];
+
+  const flushInlineBuffer = () => {
+    if (inlineBuffer.length === 0) {
+      return;
+    }
+
+    nodes.push({
+      type: "paragraph",
+      content: inlineBuffer
+    });
+    inlineBuffer = [];
+  };
+
+  value.forEach((node) => {
+    const sanitized = sanitizeNode(node);
+
+    if (!sanitized) {
+      return;
+    }
+
+    if (sanitized.type === "text") {
+      inlineBuffer.push(sanitized);
+      return;
+    }
+
+    flushInlineBuffer();
+    nodes.push(sanitized);
+  });
+
+  flushInlineBuffer();
+
+  return nodes.length > 0 ? nodes : [{ type: "paragraph" }];
+}
+
+function sanitizeInlineNodes(value: unknown): Array<Record<string, unknown>> | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const nodes = value
+    .map((node) => sanitizeNode(node))
+    .filter(
+      (node): node is Record<string, unknown> =>
+        node !== null && (node.type === "text" || node.type === "hardBreak")
+    );
+
+  return nodes.length > 0 ? nodes : undefined;
+}
+
+function sanitizeListItemNodes(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) {
+    return [{ type: "paragraph" }];
+  }
+
+  const nodes = value
+    .map((node) => sanitizeNode(node))
+    .filter(
+      (node): node is Record<string, unknown> =>
+        node !== null && node.type !== "text"
+    );
+
+  return nodes.length > 0 ? nodes : [{ type: "paragraph" }];
+}
+
+function sanitizeNode(value: unknown): Record<string, unknown> | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const rawType = typeof value.type === "string" ? value.type : null;
+
+  if (!rawType) {
+    if (typeof value.text === "string") {
+      return {
+        type: "text",
+        text: value.text
+      };
+    }
+
+    return null;
+  }
+
+  switch (rawType) {
+    case "doc":
+      return {
+        type: "doc",
+        content: sanitizeBlockNodes(value.content)
+      };
+    case "paragraph": {
+      const content = sanitizeInlineNodes(value.content);
+      return content ? { type: "paragraph", content } : { type: "paragraph" };
+    }
+    case "heading": {
+      const content = sanitizeInlineNodes(value.content);
+      const level =
+        isRecord(value.attrs) && (value.attrs.level === 1 || value.attrs.level === 2)
+          ? value.attrs.level
+          : 1;
+
+      return content
+        ? { type: "heading", attrs: { level }, content }
+        : { type: "heading", attrs: { level } };
+    }
+    case "bulletList":
+      return {
+        type: "bulletList",
+        content: sanitizeListItemNodes(value.content)
+          .filter((node) => node.type === "listItem")
+      };
+    case "listItem":
+      return {
+        type: "listItem",
+        content: sanitizeListItemNodes(value.content)
+      };
+    case "codeBlock": {
+      const content = sanitizeInlineNodes(value.content)?.filter(
+        (node) => node.type === "text"
+      );
+
+      return content && content.length > 0
+        ? { type: "codeBlock", content }
+        : { type: "codeBlock" };
+    }
+    case "text":
+      return typeof value.text === "string"
+        ? {
+            type: "text",
+            text: value.text
+          }
+        : null;
+    default:
+      return null;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, any> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 function closeCollaboratorConnections(
   instance: Server["hocuspocus"],
   documentName: string,
-  ownerId: string
+  ownerId: string,
+  options?: {
+    closeOwner?: boolean;
+    reason?: "default" | "restore";
+  }
 ) {
   const document = instance.documents.get(documentName);
 
@@ -292,23 +495,51 @@ function closeCollaboratorConnections(
     return;
   }
 
+  const closeOwner = options?.closeOwner ?? false;
+  const isRestore = options?.reason === "restore";
+  const closeCode = isRestore ? 1012 : 4403;
+  const closeReason = isRestore
+    ? "Document restored. Reconnecting..."
+    : "Collaboration disabled by the owner";
+
   document.getConnections().forEach((connection) => {
     const connectionUserId =
       typeof connection.context?.user?.id === "string"
         ? connection.context.user.id
         : null;
 
-    if (connectionUserId && connectionUserId !== ownerId) {
+    if (connectionUserId && (closeOwner || connectionUserId !== ownerId)) {
       connection.close({
-        code: 4403,
-        reason: "Collaboration disabled by the owner"
+        code: closeCode,
+        reason: closeReason
       });
-      connection.webSocket.close(4403, "Collaboration disabled by the owner");
+      connection.webSocket.close(closeCode, closeReason);
+    }
+  });
+
+  if (isRestore) {
+    skipStoreUntilByDocument.set(documentName, Date.now() + 15_000);
+    instance.documents.delete(documentName);
+  }
+}
+
+function clearExpiredStoreSkips() {
+  const now = Date.now();
+
+  skipStoreUntilByDocument.forEach((expiresAt, documentName) => {
+    if (expiresAt <= now) {
+      skipStoreUntilByDocument.delete(documentName);
     }
   });
 }
 
-async function readOwnerIdFromRequest(request: IncomingMessage) {
+async function readDisconnectRequest(
+  request: IncomingMessage
+): Promise<{
+  ownerId: string | null;
+  closeOwner: boolean;
+  reason: "default" | "restore";
+}> {
   const bodyChunks: Buffer[] = [];
 
   for await (const chunk of request) {
@@ -318,13 +549,22 @@ async function readOwnerIdFromRequest(request: IncomingMessage) {
   const bodyText = Buffer.concat(bodyChunks).toString("utf8");
 
   if (!bodyText) {
-    return null;
+    return { ownerId: null, closeOwner: false, reason: "default" as const };
   }
 
   try {
-    const parsedBody = JSON.parse(bodyText) as { ownerId?: unknown };
-    return typeof parsedBody.ownerId === "string" ? parsedBody.ownerId : null;
+    const parsedBody = JSON.parse(bodyText) as {
+      ownerId?: unknown;
+      closeOwner?: unknown;
+      reason?: unknown;
+    };
+
+    return {
+      ownerId: typeof parsedBody.ownerId === "string" ? parsedBody.ownerId : null,
+      closeOwner: parsedBody.closeOwner === true,
+      reason: parsedBody.reason === "restore" ? "restore" : "default"
+    };
   } catch {
-    return null;
+    return { ownerId: null, closeOwner: false, reason: "default" };
   }
 }

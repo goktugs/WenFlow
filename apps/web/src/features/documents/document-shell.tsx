@@ -308,7 +308,7 @@ export function DocumentShell() {
 
   return (
     <main className="min-h-screen bg-background p-4">
-      <div className="mx-auto grid min-h-[calc(100vh-2rem)] max-w-7xl grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="grid min-h-[calc(100vh-2rem)] max-w-[1720px] grid-cols-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
         <DocumentSidebar
           documents={displayedDocuments}
           isLoadingList={isLoadingList}

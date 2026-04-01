@@ -51,6 +51,7 @@ export async function restoreDocumentVersionHandler(
     return;
   }
 
+  await disconnectActiveConnections(documentId, ownerId);
   response.json({ document: result.document });
 }
 
@@ -89,4 +90,29 @@ function getParam(value: string | string[] | undefined) {
   }
 
   return Array.isArray(value) ? value[0] : value;
+}
+
+async function disconnectActiveConnections(documentId: string, ownerId: string) {
+  const collabPort = Number(process.env.COLLAB_PORT ?? 4001);
+  const jwtSecret = process.env.JWT_SECRET;
+
+  if (!jwtSecret) {
+    return;
+  }
+
+  try {
+    await fetch(
+      `http://localhost:${collabPort}/internal/documents/${documentId}/disconnect-collaborators`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${jwtSecret}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ ownerId, closeOwner: true, reason: "restore" })
+      }
+    );
+  } catch (error) {
+    console.error("Unable to disconnect active collaboration connections", error);
+  }
 }
