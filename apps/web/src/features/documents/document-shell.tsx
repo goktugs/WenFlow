@@ -32,6 +32,9 @@ export function DocumentShell() {
   const [syncState, setSyncState] = useState<
     "connecting" | "connected" | "disconnected" | "error"
   >("connecting");
+  const [presentUsers, setPresentUsers] = useState<Array<{ id: string; label: string }>>(
+    []
+  );
 
   useEffect(() => {
     if (!token) {
@@ -46,6 +49,7 @@ export function DocumentShell() {
       setSelectedDocument(null);
       setRenameValue("");
       setSyncState("connecting");
+      setPresentUsers([]);
       return;
     }
 
@@ -56,6 +60,7 @@ export function DocumentShell() {
         setSelectedDocument(document);
         setRenameValue(document.title);
         setSyncState("connecting");
+        setPresentUsers([]);
       })
       .catch((error) => {
         toast.error(error instanceof Error ? error.message : "Unable to load document");
@@ -339,12 +344,48 @@ export function DocumentShell() {
                 </div>
               </div>
 
+              <div className="rounded-2xl border border-border bg-background/60 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      Presence
+                    </p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Users currently connected to this document.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {presentUsers.length > 0 ? (
+                      presentUsers.map((presenceUser) => (
+                        <span
+                          key={presenceUser.id}
+                          className="rounded-full border border-border bg-card px-3 py-1 text-xs text-foreground"
+                        >
+                          {presenceUser.label}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="rounded-full border border-dashed border-border px-3 py-1 text-xs text-muted-foreground">
+                        No active collaborators
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {viewMode === "active" ? (
                 <EditorShell
                   documentId={selectedDocument.id}
+                  onPresenceChange={setPresentUsers}
                   onSyncStateChange={setSyncState}
                   syncState={syncState}
                   token={token!}
+                  user={{
+                    id: user!.id,
+                    name: user!.name,
+                    email: user!.email
+                  }}
                 />
               ) : (
                 <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-border bg-background/40 p-10 text-sm text-muted-foreground">
