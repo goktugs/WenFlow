@@ -5,16 +5,18 @@ import { documentRouter } from "./modules/documents/document.routes.js";
 
 export function createApp() {
   const app = express();
+  const apiV1 = express.Router();
 
   app.use(cors());
   app.use(express.json());
 
-  app.get("/health", (_request, response) => {
+  apiV1.get("/health", (_request, response) => {
     response.json({ status: "ok", service: "api" });
   });
 
-  app.use("/auth", authRouter);
-  app.use("/documents", documentRouter);
+  apiV1.use("/auth", authRouter);
+  apiV1.use("/documents", documentRouter);
+  app.use("/api/v1", apiV1);
 
   return app;
 }
