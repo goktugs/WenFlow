@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -6,7 +6,6 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import StarterKit from "@tiptap/starter-kit";
-import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { env } from "@/lib/env";
 
@@ -43,6 +42,7 @@ type EditorShellProps = {
 type SlashState = {
   query: string;
   range: { from: number; to: number };
+  anchor: { top: number; left: number; maxHeight: number };
 };
 
 export function EditorShell({
@@ -55,6 +55,7 @@ export function EditorShell({
 }: EditorShellProps) {
   const [slashState, setSlashState] = useState<SlashState | null>(null);
   const localUserColor = useMemo(() => getUserColor(user.id), [user.id]);
+  const editorWrapperRef = useRef<HTMLDivElement | null>(null);
 
   const buildPresenceUsers = (
     awarenessStates: Map<number, { user?: unknown }>
@@ -233,10 +234,10 @@ export function EditorShell({
         }
       },
       onSelectionUpdate: ({ editor: currentEditor }) => {
-        setSlashState(getSlashState(currentEditor));
+        setSlashState(getSlashState(currentEditor, editorWrapperRef.current));
       },
       onUpdate: ({ editor: currentEditor }) => {
-        setSlashState(getSlashState(currentEditor));
+        setSlashState(getSlashState(currentEditor, editorWrapperRef.current));
       }
     },
     [documentId, localUserColor, resources, user.email, user.id, user.name]
@@ -341,61 +342,39 @@ export function EditorShell({
         </div>
       </div>
 
-      {slashState && commands.length > 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-2 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
-          <div className="mb-2 px-2 pt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            Slash commands
+      <div className="relative" ref={editorWrapperRef}>
+        {slashState && commands.length > 0 ? (
+          <div
+            className="absolute z-20 w-[280px] max-w-[calc(100vw-4rem)] overflow-y-auto rounded-2xl border border-border bg-card p-2 shadow-[0_18px_50px_rgba(0,0,0,0.24)]"
+            style={{
+              top: slashState.anchor.top,
+              left: slashState.anchor.left,
+              maxHeight: slashState.anchor.maxHeight
+            }}
+          >
+            <div className="mb-2 px-2 pt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              Slash commands
+            </div>
+            <div className="grid gap-1">
+              {commands.map((command) => (
+                <button
+                  key={command.id}
+                  className="rounded-xl px-3 py-2 text-left transition hover:bg-background/80"
+                  onClick={command.run}
+                  type="button"
+                >
+                  <p className="text-sm font-medium text-foreground">{command.label}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {command.description}
+                  </p>
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="grid gap-1">
-            {commands.map((command) => (
-              <button
-                key={command.id}
-                className="rounded-xl px-3 py-2 text-left transition hover:bg-background/80"
-                onClick={command.run}
-                type="button"
-              >
-                <p className="text-sm font-medium text-foreground">{command.label}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {command.description}
-                </p>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        <Button
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          size="sm"
-          variant="outline"
-        >
-          Heading
-        </Button>
-        <Button
-          onClick={() => editor.chain().focus().setParagraph().run()}
-          size="sm"
-          variant="outline"
-        >
-          Paragraph
-        </Button>
-        <Button
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          size="sm"
-          variant="outline"
-        >
-          Bullet List
-        </Button>
-        <Button
-          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-          size="sm"
-          variant="outline"
-        >
-          Code Block
-        </Button>
+        <EditorContent editor={editor} />
       </div>
-
-      <EditorContent editor={editor} />
     </div>
   );
 }
@@ -424,23 +403,74 @@ function getUserColor(userId: string) {
 }
 
 function getSlashState(
-  editor: NonNullable<ReturnType<typeof useEditor>>
+  editor: NonNullable<ReturnType<typeof useEditor>>,
+  wrapperElement: HTMLDivElement | null
 ): SlashState | null {
   const { $from } = editor.state.selection;
-  const currentLineText = $from.parent.textContent;
-  const match = currentLineText.match(/^\/([a-z-]*)$/i);
+  const textBeforeCursor = $from.parent.textBetween(0, $from.parentOffset, "\n", "\n");
+  const textAfterCursor = $from.parent.textBetween(
+    $from.parentOffset,
+    $from.parent.content.size,
+    "\n",
+    "\n"
+  );
+  const match = textBeforeCursor.match(/(?:^|\s)\/([a-z-]*)$/i);
 
   if (!match) {
     return null;
   }
 
-  const from = $from.start();
+  if (textAfterCursor.trim().length > 0) {
+    return null;
+  }
+
+  const slashIndex = textBeforeCursor.lastIndexOf(`/${match[1] ?? ""}`);
+
+  if (slashIndex < 0) {
+    return null;
+  }
+
+  const from = $from.start() + slashIndex;
+  const cursorCoords = editor.view.coordsAtPos($from.pos);
+  const wrapperBounds =
+    wrapperElement?.getBoundingClientRect() ?? editor.view.dom.getBoundingClientRect();
+  const popupWidth = 280;
+  const popupMargin = 12;
+  const popupVerticalOffset = 8;
+  const estimatedPopupHeight = 260;
+  const viewportHeight = window.innerHeight;
+  const left = Math.min(
+    Math.max(cursorCoords.left - wrapperBounds.left, popupMargin),
+    Math.max(wrapperBounds.width - popupWidth - popupMargin, popupMargin)
+  );
+  const spaceBelow = viewportHeight - cursorCoords.bottom - popupMargin;
+  const spaceAbove = cursorCoords.top - popupMargin;
+  const shouldOpenAbove =
+    spaceBelow < estimatedPopupHeight && spaceAbove > spaceBelow;
+  const maxHeight = Math.max(
+    Math.min(shouldOpenAbove ? spaceAbove : spaceBelow, 320),
+    140
+  );
+  const top = shouldOpenAbove
+    ? Math.max(
+        cursorCoords.top -
+          wrapperBounds.top -
+          Math.min(estimatedPopupHeight, maxHeight) -
+          popupVerticalOffset,
+        popupMargin
+      )
+    : cursorCoords.bottom - wrapperBounds.top + popupVerticalOffset;
 
   return {
     query: match[1] ?? "",
     range: {
       from,
-      to: from + currentLineText.length
+      to: $from.pos
+    },
+    anchor: {
+      top,
+      left,
+      maxHeight
     }
   };
 }
