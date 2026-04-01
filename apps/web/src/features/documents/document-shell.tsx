@@ -1,7 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot
+} from "@/components/ui/input-otp";
 import { useAuth } from "@/features/auth/auth-context";
 import { EditorShell } from "@/features/editor/editor-shell";
 import {
@@ -25,6 +39,8 @@ import type {
 type ViewMode = "active" | "trash";
 
 export function DocumentShell() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { logout, token, user } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>("active");
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
@@ -33,7 +49,6 @@ export function DocumentShell() {
     null
   );
   const [renameValue, setRenameValue] = useState("");
-  const [joinDocumentId, setJoinDocumentId] = useState("");
   const [joinPassword, setJoinPassword] = useState("");
   const [collaborationPassword, setCollaborationPassword] = useState("");
   const [isLoadingList, setIsLoadingList] = useState(true);
@@ -54,6 +69,14 @@ export function DocumentShell() {
     Array<{ id: string; label: string; color: string }>
   >([]);
   const [versions, setVersions] = useState<DocumentVersion[]>([]);
+  const shareDocumentId = useMemo(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const share = searchParams.get("share");
+
+    return share?.trim() || null;
+  }, [location.search]);
+  const passwordLength = 4;
+  const passwordSlots = useMemo(() => [0, 1, 2, 3], []);
 
   useEffect(() => {
     if (!token) {
@@ -62,6 +85,14 @@ export function DocumentShell() {
 
     void loadDocuments(viewMode);
   }, [token, viewMode]);
+
+  useEffect(() => {
+    if (!shareDocumentId) {
+      return;
+    }
+
+    setViewMode("active");
+  }, [shareDocumentId]);
 
   useEffect(() => {
     if (!token || !selectedId) {
@@ -156,9 +187,12 @@ export function DocumentShell() {
       }
 
       setSelectedId((currentId) =>
-        currentId && nextDocuments.some((document) => document.id === currentId)
-          ? currentId
-          : nextDocuments[0].id
+        shareDocumentId &&
+        nextDocuments.some((document) => document.id === shareDocumentId)
+          ? shareDocumentId
+          : currentId && nextDocuments.some((document) => document.id === currentId)
+            ? currentId
+            : nextDocuments[0].id
       );
     } catch (error) {
       const message =
@@ -191,7 +225,7 @@ export function DocumentShell() {
   }
 
   async function handleJoinSharedDocument() {
-    if (!token || !joinDocumentId.trim() || !joinPassword.trim()) {
+    if (!token || !shareDocumentId || joinPassword.trim().length !== passwordLength) {
       return;
     }
 
@@ -200,19 +234,36 @@ export function DocumentShell() {
     try {
       const document = await joinSharedDocument(
         token,
-        joinDocumentId.trim(),
+        shareDocumentId,
         joinPassword
       );
       toast.success("Joined shared document");
-      setJoinDocumentId("");
       setJoinPassword("");
       setViewMode("active");
       await loadDocuments("active");
       setSelectedId(document.id);
+      if (shareDocumentId) {
+        navigate("/app", { replace: true });
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to join document");
     } finally {
       setIsJoining(false);
+    }
+  }
+
+  async function handleCopyShareLink() {
+    if (!selectedDocument) {
+      return;
+    }
+
+    const shareLink = `${window.location.origin}/app?share=${selectedDocument.id}`;
+
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      toast.success("Share link copied");
+    } catch {
+      toast.error("Unable to copy share link");
     }
   }
 
@@ -280,8 +331,8 @@ export function DocumentShell() {
       return;
     }
 
-    if (!collaborationPassword.trim()) {
-      toast.error("Set a collaboration password first");
+    if (collaborationPassword.trim().length !== passwordLength) {
+      toast.error(`Set a ${passwordLength}-character collaboration password first`);
       return;
     }
 
@@ -396,27 +447,12 @@ export function DocumentShell() {
 
             <div className="space-y-2 rounded-2xl border border-border bg-background/50 p-3">
               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                Join shared document
+                Shared access
               </p>
-              <Input
-                placeholder="Document code"
-                value={joinDocumentId}
-                onChange={(event) => setJoinDocumentId(event.target.value)}
-              />
-              <Input
-                placeholder="Collaboration password"
-                type="password"
-                value={joinPassword}
-                onChange={(event) => setJoinPassword(event.target.value)}
-              />
-              <Button
-                className="w-full"
-                disabled={isJoining}
-                onClick={handleJoinSharedDocument}
-                variant="outline"
-              >
-                {isJoining ? "Joining..." : "Join shared document"}
-              </Button>
+              <p className="text-xs text-muted-foreground">
+                Open a share link to join a shared document. If the link is valid,
+                a password dialog will appear automatically.
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -586,27 +622,36 @@ export function DocumentShell() {
                   </div>
 
                   <div className="mt-4 space-y-3">
-                    <div className="rounded-xl border border-border bg-card/70 px-3 py-3 text-sm">
-                      <span className="text-muted-foreground">Document code: </span>
-                      <span className="font-medium">
-                        {selectedDocument.accessCode ?? selectedDocument.id}
-                      </span>
-                    </div>
-
                     {selectedDocument.isOwner ? (
                       <>
-                        <Input
-                          placeholder={
-                            selectedDocument.isCollaborationEnabled
-                              ? "Set a new collaboration password"
-                              : "Set a collaboration password"
-                          }
-                          type="password"
-                          value={collaborationPassword}
-                          onChange={(event) =>
-                            setCollaborationPassword(event.target.value)
-                          }
-                        />
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            disabled={!selectedDocument.isCollaborationEnabled}
+                            onClick={handleCopyShareLink}
+                            variant="outline"
+                          >
+                            Copy share link
+                          </Button>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-xs text-muted-foreground">
+                            {selectedDocument.isCollaborationEnabled
+                              ? "Set a new 4-digit collaboration password"
+                              : "Set a 4-digit collaboration password"}
+                          </p>
+                          <InputOTP
+                            maxLength={passwordLength}
+                            value={collaborationPassword}
+                            onChange={setCollaborationPassword}
+                            containerClassName="justify-start"
+                          >
+                            <InputOTPGroup>
+                              {passwordSlots.map((slotIndex) => (
+                                <InputOTPSlot key={slotIndex} index={slotIndex} />
+                              ))}
+                            </InputOTPGroup>
+                          </InputOTP>
+                        </div>
                         <div className="flex flex-wrap gap-2">
                           <Button
                             disabled={isUpdatingCollaboration}
@@ -748,6 +793,56 @@ export function DocumentShell() {
           )}
         </section>
       </div>
+
+      <Dialog
+        open={Boolean(shareDocumentId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            navigate("/app", { replace: true });
+          }
+        }}
+      >
+        <DialogContent showCloseButton={!isJoining}>
+          <DialogHeader>
+            <DialogTitle>Join Shared Document</DialogTitle>
+            <DialogDescription>
+              Enter the 4-digit collaboration password to open this shared
+              document.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex justify-center py-2">
+            <InputOTP
+              maxLength={passwordLength}
+              value={joinPassword}
+              onChange={setJoinPassword}
+              containerClassName="justify-center"
+            >
+              <InputOTPGroup>
+                {passwordSlots.map((slotIndex) => (
+                  <InputOTPSlot key={slotIndex} index={slotIndex} />
+                ))}
+              </InputOTPGroup>
+            </InputOTP>
+          </div>
+
+          <DialogFooter>
+            <Button
+              disabled={isJoining}
+              onClick={() => navigate("/app", { replace: true })}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isJoining || joinPassword.length !== passwordLength}
+              onClick={handleJoinSharedDocument}
+            >
+              {isJoining ? "Joining..." : "Join document"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
