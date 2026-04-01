@@ -9,6 +9,9 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "@tiptap/extension-placeholder": "^2.22.3",
+    "@tiptap/react": "^2.22.3",
+    "@tiptap/starter-kit": "^2.22.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.511.0",
