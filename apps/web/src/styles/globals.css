@@ -32,25 +32,25 @@
 }
 
 :root {
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --background: oklch(0.17 0.008 286);
+  --foreground: oklch(0.94 0.004 286);
+  --card: oklch(0.215 0.008 286);
+  --card-foreground: oklch(0.94 0.004 286);
+  --popover: oklch(0.215 0.008 286);
+  --popover-foreground: oklch(0.94 0.004 286);
+  --primary: oklch(0.92 0.004 286);
+  --primary-foreground: oklch(0.19 0.008 286);
+  --secondary: oklch(0.26 0.008 286);
+  --secondary-foreground: oklch(0.93 0.004 286);
+  --muted: oklch(0.255 0.006 286);
+  --muted-foreground: oklch(0.71 0.006 286);
+  --accent: oklch(0.285 0.01 286);
+  --accent-foreground: oklch(0.96 0.004 286);
+  --destructive: oklch(0.62 0.22 25);
+  --destructive-foreground: oklch(0.97 0.004 286);
+  --border: oklch(0.3 0.008 286);
+  --input: oklch(0.26 0.008 286);
+  --ring: oklch(0.57 0.01 286);
   --radius: 0.75rem;
 }
 
@@ -64,6 +64,13 @@
     @apply bg-background text-foreground;
     margin: 0;
     font-family: var(--font-sans);
+    background-image:
+      radial-gradient(circle at top, rgba(255, 255, 255, 0.04), transparent 28%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 22%);
+  }
+
+  a {
+    color: inherit;
   }
 }
 
@@ -76,11 +83,11 @@
 
 .app-card {
   width: min(100%, 480px);
-  background: white;
-  border: 1px solid oklch(0.872 0 0);
+  background: oklch(0.215 0.008 286);
+  border: 1px solid oklch(0.3 0.008 286);
   border-radius: 16px;
   padding: 32px;
-  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
 }
 
 .eyebrow {
@@ -88,7 +95,7 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 12px;
-  color: #6b7280;
+  color: oklch(0.7 0.006 286);
 }
 
 h1 {
@@ -100,4 +107,3 @@ p {
   margin: 0;
   line-height: 1.5;
 }
-
