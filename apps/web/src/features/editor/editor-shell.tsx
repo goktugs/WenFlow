@@ -7,6 +7,7 @@ import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import StarterKit from "@tiptap/starter-kit";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { env } from "@/lib/env";
 
 type SlashCommand = {
@@ -54,6 +55,55 @@ export function EditorShell({
 }: EditorShellProps) {
   const [slashState, setSlashState] = useState<SlashState | null>(null);
   const localUserColor = useMemo(() => getUserColor(user.id), [user.id]);
+
+  const buildPresenceUsers = (
+    awarenessStates: Map<number, { user?: unknown }>
+  ) => {
+    const users = Array.from(awarenessStates.values())
+      .map(
+        (state) =>
+          state.user as
+            | {
+                id?: string;
+                label?: string;
+                name?: string;
+                color?: string;
+                status?: "viewing" | "editing";
+              }
+            | undefined
+      )
+      .filter(
+        (
+          awarenessUser
+        ): awarenessUser is {
+          id: string;
+          label?: string;
+          name?: string;
+          color: string;
+          status?: "viewing" | "editing";
+        } =>
+          Boolean(
+            awarenessUser?.id &&
+              (awarenessUser.label || awarenessUser.name) &&
+              awarenessUser.color
+          )
+      );
+
+    return Array.from(
+      new Map(
+        users.map((awarenessUser) => [
+          awarenessUser.id,
+          {
+            id: awarenessUser.id,
+            label: awarenessUser.label ?? awarenessUser.name ?? "Guest",
+            color: awarenessUser.color,
+            status: awarenessUser.status ?? "viewing"
+          }
+        ])
+      ).values()
+    );
+  };
+
   const resources = useMemo(() => {
     const ydoc = new Y.Doc();
     const provider = new HocuspocusProvider({
@@ -95,60 +145,27 @@ export function EditorShell({
       status: "viewing"
     });
 
+    return { ydoc, provider };
+  }, [documentId, localUserColor, onSyncStateChange, token, user.email, user.id, user.name]);
+
+  useEffect(() => {
+    const awareness = resources.provider.awareness;
+
+    if (!awareness) {
+      return;
+    }
+
     const handleAwarenessChange = () => {
-      const states = Array.from(awareness.getStates().values());
-      const users = states
-        .map(
-          (state) =>
-            state.user as
-              | {
-                  id?: string;
-                  label?: string;
-                  name?: string;
-                  color?: string;
-                  status?: "viewing" | "editing";
-                }
-              | undefined
-        )
-        .filter(
-          (
-            awarenessUser
-          ): awarenessUser is {
-            id: string;
-            label?: string;
-            name?: string;
-            color: string;
-            status?: "viewing" | "editing";
-          } =>
-            Boolean(
-              awarenessUser?.id &&
-                (awarenessUser.label || awarenessUser.name) &&
-                awarenessUser.color
-            )
-        );
-
-      const uniqueUsers = Array.from(
-        new Map(
-          users.map((awarenessUser) => [
-            awarenessUser.id,
-            {
-              id: awarenessUser.id,
-              label: awarenessUser.label ?? awarenessUser.name ?? "Guest",
-              color: awarenessUser.color,
-              status: awarenessUser.status ?? "viewing"
-            }
-          ])
-        ).values()
-      );
-
-      onPresenceChange(uniqueUsers);
+      onPresenceChange(buildPresenceUsers(awareness.getStates() as Map<number, { user?: unknown }>));
     };
 
     awareness.on("change", handleAwarenessChange);
     handleAwarenessChange();
 
-    return { ydoc, provider };
-  }, [documentId, onPresenceChange, onSyncStateChange, token, user.email, user.id, user.name]);
+    return () => {
+      awareness.off("change", handleAwarenessChange);
+    };
+  }, [onPresenceChange, resources.provider.awareness]);
 
   useEffect(() => {
     return () => {
@@ -295,7 +312,8 @@ export function EditorShell({
 
   if (!editor) {
     return (
-      <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-dashed border-border bg-background/40 text-sm text-muted-foreground">
+      <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-background/40 text-sm text-muted-foreground">
+        <Spinner className="size-8" />
         Loading editor...
       </div>
     );

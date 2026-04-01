@@ -8,6 +8,7 @@ import {
   DialogTitle
 } from "@/components/ui/dialog";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Spinner } from "@/components/ui/spinner";
 
 type ShareJoinDialogProps = {
   open: boolean;
@@ -61,6 +62,7 @@ export function ShareJoinDialog({
             disabled={isJoining || joinPassword.length !== 4}
             onClick={onSubmit}
           >
+            {isJoining ? <Spinner className="size-5" /> : null}
             {isJoining ? "Joining..." : "Join document"}
           </Button>
         </DialogFooter>
