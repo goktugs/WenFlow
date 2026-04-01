@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,9 @@ import { AuthPageShell } from "./auth-page-shell";
 
 export function RegisterPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { register, user } = useAuth();
+  const locationSearch = useMemo(() => location.search, [location.search]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,7 +19,7 @@ export function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (user) {
-    return <Navigate to="/app" replace />;
+    return <Navigate to={`/app${locationSearch}`} replace />;
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -28,7 +30,7 @@ export function RegisterPage() {
     try {
       await register({ name, email, password });
       toast.success("Account created");
-      navigate("/app", { replace: true });
+      navigate(`/app${locationSearch}`, { replace: true });
     } catch (submitError) {
       toast.error(
         submitError instanceof Error ? submitError.message : "Unable to register"
@@ -45,7 +47,7 @@ export function RegisterPage() {
     <AuthPageShell
       title="Create account"
       description="Start with a personal workspace."
-      alternateHref="/login"
+      alternateHref={`/login${locationSearch}`}
       alternateLabel="Sign in"
       alternateText="Already have an account?"
     >
