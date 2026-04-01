@@ -1,12 +1,11 @@
-FROM node:22-alpine
+FROM node:24-alpine
 
 WORKDIR /app
 
-COPY package.json tsconfig.base.json eslint.config.js prettier.config.js ./
+COPY package.json package-lock.json tsconfig.base.json eslint.config.js prettier.config.js ./
 COPY apps ./apps
 COPY packages ./packages
 
-RUN npm install
+RUN npm ci
 
 EXPOSE 4001
-

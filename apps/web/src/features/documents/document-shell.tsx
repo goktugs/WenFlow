@@ -11,8 +11,7 @@ import {
   listDocumentVersions,
   listDocuments,
   renameDocument,
-  restoreDocument
-  ,
+  restoreDocument,
   restoreDocumentVersion
 } from "./document.api";
 import type {
@@ -36,8 +35,11 @@ export function DocumentShell() {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isSavingTitle, setIsSavingTitle] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const [isLoadingVersions, setIsLoadingVersions] = useState(false);
   const [isRestoringVersion, setIsRestoringVersion] = useState(false);
+  const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null);
   const [syncState, setSyncState] = useState<
     "connecting" | "connected" | "disconnected" | "error"
   >("connecting");
@@ -58,13 +60,16 @@ export function DocumentShell() {
     if (!token || !selectedId) {
       setSelectedDocument(null);
       setRenameValue("");
+      setDetailError(null);
       setSyncState("connecting");
       setPresentUsers([]);
       setVersions([]);
+      setRestoringVersionId(null);
       return;
     }
 
     setIsLoadingDetail(true);
+    setDetailError(null);
 
     getDocument(token, selectedId)
       .then((document) => {
@@ -74,7 +79,10 @@ export function DocumentShell() {
         setPresentUsers([]);
       })
       .catch((error) => {
-        toast.error(error instanceof Error ? error.message : "Unable to load document");
+        const message =
+          error instanceof Error ? error.message : "Unable to load document";
+        toast.error(message);
+        setDetailError(message);
         setSelectedDocument(null);
       })
       .finally(() => {
@@ -107,6 +115,7 @@ export function DocumentShell() {
     }
 
     setIsLoadingList(true);
+    setListError(null);
 
     try {
       const nextDocuments = await listDocuments(token, nextMode === "trash");
@@ -125,7 +134,10 @@ export function DocumentShell() {
           : nextDocuments[0].id
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to load documents");
+      const message =
+        error instanceof Error ? error.message : "Unable to load documents";
+      toast.error(message);
+      setListError(message);
     } finally {
       setIsLoadingList(false);
     }
@@ -227,6 +239,7 @@ export function DocumentShell() {
     }
 
     setIsRestoringVersion(true);
+    setRestoringVersionId(versionId);
 
     try {
       const restoredDocument = await restoreDocumentVersion(
@@ -255,6 +268,7 @@ export function DocumentShell() {
       toast.error(error instanceof Error ? error.message : "Unable to restore version");
     } finally {
       setIsRestoringVersion(false);
+      setRestoringVersionId(null);
     }
   }
 
@@ -302,6 +316,10 @@ export function DocumentShell() {
           <div className="mt-4 flex-1 overflow-y-auto">
             {isLoadingList ? (
               <p className="px-2 text-sm text-muted-foreground">Loading documents...</p>
+            ) : listError ? (
+              <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-6 text-sm text-destructive">
+                {listError}
+              </div>
             ) : documents.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
                 {viewMode === "active"
@@ -340,6 +358,10 @@ export function DocumentShell() {
           ) : isLoadingDetail ? (
             <div className="flex h-full min-h-[60vh] items-center justify-center rounded-2xl border border-dashed border-border text-sm text-muted-foreground">
               Loading document...
+            </div>
+          ) : detailError ? (
+            <div className="flex h-full min-h-[60vh] items-center justify-center rounded-2xl border border-destructive/30 bg-destructive/10 px-6 text-sm text-destructive">
+              {detailError}
             </div>
           ) : selectedDocument ? (
             <div className="flex h-full min-h-[60vh] flex-col gap-6">
@@ -476,7 +498,9 @@ export function DocumentShell() {
                           size="sm"
                           variant="outline"
                         >
-                          {isRestoringVersion ? "Restoring..." : "Restore"}
+                          {isRestoringVersion && restoringVersionId === version.id
+                            ? "Restoring..."
+                            : "Restore"}
                         </Button>
                       </div>
                     ))
