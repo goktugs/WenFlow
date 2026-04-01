@@ -8,11 +8,18 @@ import {
   createDocument,
   deleteDocument,
   getDocument,
+  listDocumentVersions,
   listDocuments,
   renameDocument,
   restoreDocument
+  ,
+  restoreDocumentVersion
 } from "./document.api";
-import type { DocumentDetail, DocumentListItem } from "./document.types";
+import type {
+  DocumentDetail,
+  DocumentListItem,
+  DocumentVersion
+} from "./document.types";
 
 type ViewMode = "active" | "trash";
 
@@ -29,12 +36,15 @@ export function DocumentShell() {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isSavingTitle, setIsSavingTitle] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
+  const [isLoadingVersions, setIsLoadingVersions] = useState(false);
+  const [isRestoringVersion, setIsRestoringVersion] = useState(false);
   const [syncState, setSyncState] = useState<
     "connecting" | "connected" | "disconnected" | "error"
   >("connecting");
   const [presentUsers, setPresentUsers] = useState<Array<{ id: string; label: string }>>(
     []
   );
+  const [versions, setVersions] = useState<DocumentVersion[]>([]);
 
   useEffect(() => {
     if (!token) {
@@ -50,6 +60,7 @@ export function DocumentShell() {
       setRenameValue("");
       setSyncState("connecting");
       setPresentUsers([]);
+      setVersions([]);
       return;
     }
 
@@ -68,6 +79,20 @@ export function DocumentShell() {
       })
       .finally(() => {
         setIsLoadingDetail(false);
+      });
+
+    setIsLoadingVersions(true);
+
+    listDocumentVersions(token, selectedId)
+      .then((nextVersions) => {
+        setVersions(nextVersions);
+      })
+      .catch((error) => {
+        toast.error(error instanceof Error ? error.message : "Unable to load versions");
+        setVersions([]);
+      })
+      .finally(() => {
+        setIsLoadingVersions(false);
       });
   }, [selectedId, token]);
 
@@ -193,6 +218,43 @@ export function DocumentShell() {
       toast.error(error instanceof Error ? error.message : "Unable to restore document");
     } finally {
       setIsMutating(false);
+    }
+  }
+
+  async function handleRestoreVersion(versionId: string) {
+    if (!token || !selectedDocument) {
+      return;
+    }
+
+    setIsRestoringVersion(true);
+
+    try {
+      const restoredDocument = await restoreDocumentVersion(
+        token,
+        selectedDocument.id,
+        versionId
+      );
+      toast.success("Version restored");
+      setSelectedDocument(restoredDocument);
+      setRenameValue(restoredDocument.title);
+      setDocuments((currentDocuments) =>
+        currentDocuments.map((document) =>
+          document.id === restoredDocument.id
+            ? {
+                ...document,
+                title: restoredDocument.title,
+                updatedAt: restoredDocument.updatedAt,
+                deletedAt: restoredDocument.deletedAt
+              }
+            : document
+        )
+      );
+      const nextVersions = await listDocumentVersions(token, restoredDocument.id);
+      setVersions(nextVersions);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to restore version");
+    } finally {
+      setIsRestoringVersion(false);
     }
   }
 
@@ -371,6 +433,54 @@ export function DocumentShell() {
                       </span>
                     )}
                   </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-border bg-background/60 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      Version history
+                    </p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Snapshot history for this document.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  {isLoadingVersions ? (
+                    <p className="text-sm text-muted-foreground">Loading versions...</p>
+                  ) : versions.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                      No saved versions yet.
+                    </p>
+                  ) : (
+                    versions.map((version) => (
+                      <div
+                        key={version.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-3"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            v{version.versionNumber} · {version.titleSnapshot}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {new Date(version.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+
+                        <Button
+                          disabled={isRestoringVersion}
+                          onClick={() => handleRestoreVersion(version.id)}
+                          size="sm"
+                          variant="outline"
+                        >
+                          {isRestoringVersion ? "Restoring..." : "Restore"}
+                        </Button>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 

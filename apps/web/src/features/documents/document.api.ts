@@ -1,5 +1,9 @@
 import { apiRequest } from "@/lib/api";
-import type { DocumentDetail, DocumentListItem } from "./document.types";
+import type {
+  DocumentDetail,
+  DocumentListItem,
+  DocumentVersion
+} from "./document.types";
 
 export async function listDocuments(token: string, includeDeleted = false) {
   const suffix = includeDeleted ? "?deleted=true" : "";
@@ -63,6 +67,33 @@ export async function deleteDocument(token: string, id: string) {
 export async function restoreDocument(token: string, id: string) {
   const result = await apiRequest<{ document: DocumentDetail }>(
     `/documents/${id}/restore`,
+    {
+      method: "POST",
+      token
+    }
+  );
+
+  return result.document;
+}
+
+export async function listDocumentVersions(token: string, id: string) {
+  const result = await apiRequest<{ versions: DocumentVersion[] }>(
+    `/documents/${id}/versions`,
+    {
+      token
+    }
+  );
+
+  return result.versions;
+}
+
+export async function restoreDocumentVersion(
+  token: string,
+  documentId: string,
+  versionId: string
+) {
+  const result = await apiRequest<{ document: DocumentDetail }>(
+    `/documents/${documentId}/versions/${versionId}/restore`,
     {
       method: "POST",
       token

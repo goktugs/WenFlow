@@ -15,3 +15,10 @@ export type DocumentDetail = {
   updatedAt: string;
 };
 
+export type DocumentVersion = {
+  id: string;
+  titleSnapshot: string;
+  versionNumber: number;
+  createdAt: string;
+  createdByUserId: string | null;
+};
