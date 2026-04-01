@@ -4,9 +4,9 @@ import {
   createDocument,
   getDocumentById,
   listDocuments,
-  renameDocument,
   restoreDocument,
-  softDeleteDocument
+  softDeleteDocument,
+  updateDocument
 } from "./document.service.js";
 import {
   createDocumentSchema,
@@ -57,7 +57,7 @@ export async function updateDocumentHandler(
     const ownerId = request.authUser!.id;
     const documentId = getDocumentId(request);
     const input = updateDocumentSchema.parse(request.body);
-    const result = await renameDocument(documentId, ownerId, input.title);
+    const result = await updateDocument(documentId, ownerId, input);
 
     if (result.count === 0) {
       response.status(404).json({ message: "Document not found" });

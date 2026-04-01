@@ -39,6 +39,20 @@ export async function renameDocument(token: string, id: string, title: string) {
   return result.document;
 }
 
+export async function saveDocumentContent(
+  token: string,
+  id: string,
+  contentJson: unknown
+) {
+  const result = await apiRequest<{ document: DocumentDetail }>(`/documents/${id}`, {
+    method: "PATCH",
+    token,
+    body: { contentJson }
+  });
+
+  return result.document;
+}
+
 export async function deleteDocument(token: string, id: string) {
   await apiRequest(`/documents/${id}`, {
     method: "DELETE",
@@ -57,4 +71,3 @@ export async function restoreDocument(token: string, id: string) {
 
   return result.document;
 }
-
