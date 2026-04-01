@@ -44,16 +44,19 @@ export function DocumentSidebar({
   });
 
   return (
-    <aside className="flex flex-col rounded-3xl border border-border bg-card/95 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-      <div className="space-y-4 border-b border-border pb-4">
-        <div className="flex items-start justify-between gap-3">
+    <aside className="flex flex-col rounded-3xl border border-border bg-card/95 p-3 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+      <div className="space-y-3 border-b border-border pb-3">
+        <div className="space-y-3">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
               WenFlow
             </p>
-            <h1 className="mt-2 text-xl font-semibold">{userName}'s workspace</h1>
+            <h1 className="mt-2 text-[15px] font-semibold leading-snug">
+              {userName}'s workspace
+            </h1>
           </div>
-          <Button onClick={onLogout} size="sm" variant="outline">
+
+          <Button className="w-full" onClick={onLogout} size="sm" variant="outline">
             Sign out
           </Button>
         </div>
@@ -66,7 +69,7 @@ export function DocumentSidebar({
           New document
         </Button>
 
-        <div className="space-y-2 rounded-2xl border border-border bg-background/50 p-3">
+        <div className="space-y-2 rounded-2xl border border-border bg-background/50 p-2.5">
           <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
             Shared access
           </p>
@@ -78,14 +81,20 @@ export function DocumentSidebar({
 
         <Tabs value={viewMode} onValueChange={(value) => onChangeViewMode(value as ViewMode)}>
           <TabsList>
-            <TabsTrigger value="my-docs">My Docs</TabsTrigger>
-            <TabsTrigger value="shared">Shared With Me</TabsTrigger>
-            <TabsTrigger value="trash">Trash</TabsTrigger>
+            <TabsTrigger className="px-2 text-xs" value="my-docs">
+              My Docs
+            </TabsTrigger>
+            <TabsTrigger className="px-2 text-xs" value="shared">
+              Shared
+            </TabsTrigger>
+            <TabsTrigger className="px-2 text-xs" value="trash">
+              Trash
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
-      <div className="mt-4 flex-1 overflow-y-auto">
+      <div className="mt-3 flex-1 overflow-y-auto">
         {isLoadingList ? (
           <div className="flex flex-col items-center justify-center gap-3 px-2 py-10 text-sm text-muted-foreground">
             <Spinner className="size-7" />
@@ -104,11 +113,11 @@ export function DocumentSidebar({
                 : "Trash is empty."}
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {filteredDocuments.map((document) => (
               <button
                 key={document.id}
-                className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
+                className={`w-full rounded-2xl border px-3 py-2.5 text-left transition ${
                   selectedId === document.id
                     ? "border-primary/30 bg-primary/10 text-foreground"
                     : "border-transparent bg-background/50 text-muted-foreground hover:border-border hover:text-foreground"
