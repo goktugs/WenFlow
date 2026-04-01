@@ -13,6 +13,7 @@ export type DocumentListItem = {
   owner: DocumentOwner;
   isOwner: boolean;
   isCollaborationEnabled: boolean;
+  isCollaborationReadOnly: boolean;
 };
 
 export type DocumentDetail = {
@@ -25,6 +26,8 @@ export type DocumentDetail = {
   owner: DocumentOwner;
   isOwner: boolean;
   isCollaborationEnabled: boolean;
+  isCollaborationReadOnly: boolean;
+  isReadOnly: boolean;
   accessCode: string | null;
 };
 

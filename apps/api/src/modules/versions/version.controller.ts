@@ -41,6 +41,11 @@ export async function restoreDocumentVersionHandler(
     return;
   }
 
+  if (result.status === "forbidden") {
+    response.status(403).json({ message: "Read-only access cannot restore versions" });
+    return;
+  }
+
   if (result.status === "version-not-found") {
     response.status(404).json({ message: "Version not found" });
     return;
@@ -67,6 +72,11 @@ export async function saveCurrentDocumentVersionHandler(
 
   if (result.status === "no-changes") {
     response.status(200).json({ status: "no-changes" });
+    return;
+  }
+
+  if (result.status === "forbidden") {
+    response.status(403).json({ message: "Read-only access cannot save versions" });
     return;
   }
 

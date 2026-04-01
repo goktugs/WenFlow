@@ -33,9 +33,11 @@ type DocumentStoreState = {
   documents: DocumentListItem[];
   selectedId: string | null;
   selectedDocument: DocumentDetail | null;
+  preserveEmptySelection: boolean;
   renameValue: string;
   joinPassword: string;
   collaborationPassword: string;
+  collaborationReadOnly: boolean;
   isLoadingList: boolean;
   isLoadingDetail: boolean;
   isSavingTitle: boolean;
@@ -55,9 +57,11 @@ type DocumentStoreState = {
   editorRestoreContent: unknown | null;
   setViewMode: (viewMode: ViewMode) => void;
   setSelectedId: (selectedId: string | null) => void;
+  clearSelection: () => void;
   setRenameValue: (renameValue: string) => void;
   setJoinPassword: (joinPassword: string) => void;
   setCollaborationPassword: (collaborationPassword: string) => void;
+  setCollaborationReadOnly: (collaborationReadOnly: boolean) => void;
   setSyncState: (syncState: SyncState) => void;
   setPresentUsers: (presentUsers: PresenceUser[]) => void;
   resetSelectionState: () => void;
@@ -89,6 +93,7 @@ type DocumentStoreState = {
   ) => Promise<void>;
   enableCollaboration: (token: string, document: DocumentDetail) => Promise<void>;
   disableCollaboration: (token: string, document: DocumentDetail) => Promise<void>;
+  updateShareMode: (token: string, document: DocumentDetail) => Promise<void>;
   restoreVersion: (token: string, document: DocumentDetail, versionId: string) => Promise<void>;
   saveVersion: (token: string, document: DocumentDetail) => Promise<void>;
 };
@@ -98,9 +103,11 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   documents: [],
   selectedId: null,
   selectedDocument: null,
+  preserveEmptySelection: false,
   renameValue: "",
   joinPassword: "",
   collaborationPassword: "",
+  collaborationReadOnly: false,
   isLoadingList: true,
   isLoadingDetail: false,
   isSavingTitle: false,
@@ -122,7 +129,21 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
     set({ viewMode });
   },
   setSelectedId(selectedId) {
-    set({ selectedId });
+    set({
+      selectedId,
+      preserveEmptySelection: selectedId === null
+    });
+  },
+  clearSelection() {
+    set({
+      selectedId: null,
+      selectedDocument: null,
+      preserveEmptySelection: true,
+      renameValue: "",
+      detailError: null,
+      presentUsers: [],
+      versions: []
+    });
   },
   setRenameValue(renameValue) {
     set({ renameValue });
@@ -132,6 +153,9 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   },
   setCollaborationPassword(collaborationPassword) {
     set({ collaborationPassword });
+  },
+  setCollaborationReadOnly(collaborationReadOnly) {
+    set({ collaborationReadOnly });
   },
   setSyncState(syncState) {
     set({ syncState });
@@ -144,6 +168,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       selectedDocument: null,
       renameValue: "",
       collaborationPassword: "",
+      collaborationReadOnly: false,
       detailError: null,
       syncState: "connecting",
       presentUsers: [],
@@ -164,7 +189,8 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
               deletedAt: nextDocument.deletedAt,
               owner: nextDocument.owner,
               isOwner: nextDocument.isOwner,
-              isCollaborationEnabled: nextDocument.isCollaborationEnabled
+              isCollaborationEnabled: nextDocument.isCollaborationEnabled,
+              isCollaborationReadOnly: nextDocument.isCollaborationReadOnly
             }
           : document
       )
@@ -184,6 +210,8 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
         selectedId:
           nextDocuments.length === 0
             ? null
+            : state.preserveEmptySelection
+              ? null
             : shareDocumentId &&
                 nextDocuments.some((document) => document.id === shareDocumentId)
               ? shareDocumentId
@@ -192,7 +220,9 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
                 ? state.selectedId
                 : nextDocuments[0].id,
         selectedDocument: nextDocuments.length === 0 ? null : state.selectedDocument,
-        renameValue: nextDocuments.length === 0 ? "" : state.renameValue
+        renameValue: nextDocuments.length === 0 ? "" : state.renameValue,
+        preserveEmptySelection:
+          nextDocuments.length === 0 ? false : state.preserveEmptySelection
       }));
     } catch (error) {
       const message =
@@ -215,6 +245,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
         selectedDocument: document,
         renameValue: document.title,
         collaborationPassword: "",
+        collaborationReadOnly: document.isCollaborationReadOnly,
         syncState: "connecting",
         presentUsers: [],
         editorRestoreNonce: 0,
@@ -253,7 +284,8 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       toast.success("Document created");
       set({
         viewMode: "my-docs",
-        selectedId: document.id
+        selectedId: document.id,
+        preserveEmptySelection: false
       });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to create document");
@@ -272,7 +304,8 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       set({
         joinPassword: "",
         viewMode: "my-docs",
-        selectedId: document.id
+        selectedId: document.id,
+        preserveEmptySelection: false
       });
       navigateToApp();
     } catch (error) {
@@ -326,14 +359,15 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
     }
   },
   async enableCollaboration(token, document) {
-    const { collaborationPassword } = get();
+    const { collaborationPassword, collaborationReadOnly } = get();
 
     set({ isUpdatingCollaboration: true });
 
     try {
       const updatedDocument = await updateDocumentCollaboration(token, document.id, {
         enabled: true,
-        password: collaborationPassword
+        password: collaborationPassword,
+        readOnly: collaborationReadOnly
       });
       toast.success(
         document.isCollaborationEnabled
@@ -342,7 +376,8 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       );
       set({
         selectedDocument: updatedDocument,
-        collaborationPassword: ""
+        collaborationPassword: "",
+        collaborationReadOnly: updatedDocument.isCollaborationReadOnly
       });
       get().syncDocumentInList(updatedDocument);
     } catch (error) {
@@ -363,13 +398,36 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       toast.success("Shared editing disabled");
       set({
         selectedDocument: updatedDocument,
-        collaborationPassword: ""
+        collaborationPassword: "",
+        collaborationReadOnly: false
       });
       get().syncDocumentInList(updatedDocument);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Unable to update collaboration"
       );
+    } finally {
+      set({ isUpdatingCollaboration: false });
+    }
+  },
+  async updateShareMode(token, document) {
+    const { collaborationReadOnly } = get();
+
+    set({ isUpdatingCollaboration: true });
+
+    try {
+      const updatedDocument = await updateDocumentCollaboration(token, document.id, {
+        enabled: true,
+        readOnly: collaborationReadOnly
+      });
+      toast.success("Share mode updated");
+      set({
+        selectedDocument: updatedDocument,
+        collaborationReadOnly: updatedDocument.isCollaborationReadOnly
+      });
+      get().syncDocumentInList(updatedDocument);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to update share mode");
     } finally {
       set({ isUpdatingCollaboration: false });
     }

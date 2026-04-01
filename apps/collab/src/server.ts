@@ -81,6 +81,7 @@ const server = new Server({
             ownerId: payload.sub
           },
           {
+            deletedAt: null,
             collaborators: {
               some: {
                 userId: payload.sub
@@ -90,13 +91,18 @@ const server = new Server({
         ]
       },
       select: {
-        id: true
+        id: true,
+        ownerId: true,
+        isCollaborationReadOnly: true
       }
     });
 
     if (!document) {
       throw new Error("Not authorized");
     }
+
+    data.connectionConfig.readOnly =
+      document.isCollaborationReadOnly && document.ownerId !== payload.sub;
 
     return {
       user: {
@@ -114,6 +120,7 @@ const server = new Server({
             ownerId: data.context.user.id
           },
           {
+            deletedAt: null,
             collaborators: {
               some: {
                 userId: data.context.user.id

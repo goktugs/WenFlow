@@ -19,6 +19,7 @@ type SelectedDocumentRecord = {
   updatedAt: Date;
   ownerId: string;
   isCollaborationEnabled: boolean;
+  isCollaborationReadOnly: boolean;
   owner: {
     id: string;
     name: string;
@@ -71,11 +72,14 @@ function mapDocumentSummary(
     updatedAt: document.updatedAt,
     owner: document.owner,
     isOwner: document.ownerId === document.owner.id,
-    isCollaborationEnabled: document.isCollaborationEnabled
+    isCollaborationEnabled: document.isCollaborationEnabled,
+    isCollaborationReadOnly: document.isCollaborationReadOnly
   };
 }
 
 function mapDocumentDetail(document: SelectedDocumentRecord, userId: string) {
+  const isOwner = document.ownerId === userId;
+
   return {
     id: document.id,
     title: document.title,
@@ -84,8 +88,10 @@ function mapDocumentDetail(document: SelectedDocumentRecord, userId: string) {
     createdAt: document.createdAt,
     updatedAt: document.updatedAt,
     owner: document.owner,
-    isOwner: document.ownerId === userId,
+    isOwner,
     isCollaborationEnabled: document.isCollaborationEnabled,
+    isCollaborationReadOnly: document.isCollaborationReadOnly,
+    isReadOnly: !isOwner && document.isCollaborationReadOnly,
     accessCode: document.isCollaborationEnabled ? document.id : null
   };
 }
@@ -102,6 +108,7 @@ async function findAccessibleDocument(id: string, userId: string) {
       updatedAt: true,
       ownerId: true,
       isCollaborationEnabled: true,
+      isCollaborationReadOnly: true,
       owner: {
         select: {
           id: true,
@@ -128,6 +135,7 @@ async function findOwnedDocument(id: string, ownerId: string) {
       updatedAt: true,
       ownerId: true,
       isCollaborationEnabled: true,
+      isCollaborationReadOnly: true,
       owner: {
         select: {
           id: true,
@@ -153,6 +161,7 @@ export async function listDocuments({ userId, includeDeleted }: DocumentListPara
       updatedAt: true,
       ownerId: true,
       isCollaborationEnabled: true,
+      isCollaborationReadOnly: true,
       owner: {
         select: {
           id: true,
@@ -184,6 +193,7 @@ export async function createDocument(ownerId: string, title?: string) {
       updatedAt: true,
       ownerId: true,
       isCollaborationEnabled: true,
+      isCollaborationReadOnly: true,
       owner: {
         select: {
           id: true,
@@ -225,7 +235,8 @@ export async function updateDocument(
       id: true,
       title: true,
       contentJson: true,
-      ownerId: true
+      ownerId: true,
+      isCollaborationReadOnly: true
     }
   });
 
@@ -234,6 +245,14 @@ export async function updateDocument(
   }
 
   if (typeof input.title !== "undefined" && currentDocument.ownerId !== userId) {
+    return { status: "forbidden" as const };
+  }
+
+  if (
+    typeof input.contentJson !== "undefined" &&
+    currentDocument.ownerId !== userId &&
+    currentDocument.isCollaborationReadOnly
+  ) {
     return { status: "forbidden" as const };
   }
 
@@ -303,6 +322,7 @@ export async function updateDocumentCollaborationSettings(input: {
   ownerId: string;
   enabled: boolean;
   password?: string;
+  readOnly?: boolean;
 }) {
   const document = await findOwnedDocument(input.documentId, input.ownerId);
 
@@ -313,14 +333,9 @@ export async function updateDocumentCollaborationSettings(input: {
   if (input.enabled) {
     const password = input.password?.trim();
 
-    if (!password) {
+    if (!password && !document.isCollaborationEnabled) {
       throw new Error("COLLABORATION_PASSWORD_REQUIRED");
     }
-
-    const passwordHash = await bcrypt.hash(
-      password,
-      COLLABORATION_PASSWORD_SALT_ROUNDS
-    );
 
     await prisma.document.update({
       where: {
@@ -328,7 +343,15 @@ export async function updateDocumentCollaborationSettings(input: {
       },
       data: {
         isCollaborationEnabled: true,
-        collaborationPasswordHash: passwordHash
+        isCollaborationReadOnly: input.readOnly ?? false,
+        ...(password
+          ? {
+              collaborationPasswordHash: await bcrypt.hash(
+                password,
+                COLLABORATION_PASSWORD_SALT_ROUNDS
+              )
+            }
+          : {})
       }
     });
   } else {
@@ -339,6 +362,7 @@ export async function updateDocumentCollaborationSettings(input: {
         },
         data: {
           isCollaborationEnabled: false,
+          isCollaborationReadOnly: false,
           collaborationPasswordHash: null
         }
       }),
@@ -372,6 +396,7 @@ export async function joinSharedDocument(input: {
       id: true,
       ownerId: true,
       isCollaborationEnabled: true,
+      isCollaborationReadOnly: true,
       collaborationPasswordHash: true
     }
   });

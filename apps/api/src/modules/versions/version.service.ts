@@ -57,12 +57,18 @@ export async function saveCurrentDocumentVersion(input: {
     select: {
       id: true,
       title: true,
-      contentJson: true
+      contentJson: true,
+      ownerId: true,
+      isCollaborationReadOnly: true
     }
   });
 
   if (!document) {
     return { status: "document-not-found" as const };
+  }
+
+  if (document.ownerId !== input.userId && document.isCollaborationReadOnly) {
+    return { status: "forbidden" as const };
   }
 
   const lastVersion = await prisma.documentVersion.findFirst({
@@ -194,12 +200,18 @@ export async function restoreDocumentVersion(input: {
     select: {
       id: true,
       title: true,
-      contentJson: true
+      contentJson: true,
+      ownerId: true,
+      isCollaborationReadOnly: true
     }
   });
 
   if (!document) {
     return { status: "document-not-found" as const };
+  }
+
+  if (document.ownerId !== input.ownerId && document.isCollaborationReadOnly) {
+    return { status: "forbidden" as const };
   }
 
   const version = await prisma.documentVersion.findFirst({

@@ -21,6 +21,9 @@ export function DocumentShell() {
   const collaborationPassword = useDocumentStore(
     (state) => state.collaborationPassword
   );
+  const collaborationReadOnly = useDocumentStore(
+    (state) => state.collaborationReadOnly
+  );
   const isLoadingList = useDocumentStore((state) => state.isLoadingList);
   const isLoadingDetail = useDocumentStore((state) => state.isLoadingDetail);
   const isSavingTitle = useDocumentStore((state) => state.isSavingTitle);
@@ -47,10 +50,14 @@ export function DocumentShell() {
 
   const setViewMode = useDocumentStore((state) => state.setViewMode);
   const setSelectedId = useDocumentStore((state) => state.setSelectedId);
+  const clearSelection = useDocumentStore((state) => state.clearSelection);
   const setRenameValue = useDocumentStore((state) => state.setRenameValue);
   const setJoinPassword = useDocumentStore((state) => state.setJoinPassword);
   const setCollaborationPassword = useDocumentStore(
     (state) => state.setCollaborationPassword
+  );
+  const setCollaborationReadOnly = useDocumentStore(
+    (state) => state.setCollaborationReadOnly
   );
   const setSyncState = useDocumentStore((state) => state.setSyncState);
   const setPresentUsers = useDocumentStore((state) => state.setPresentUsers);
@@ -73,6 +80,7 @@ export function DocumentShell() {
   const disableCollaborationAction = useDocumentStore(
     (state) => state.disableCollaboration
   );
+  const updateShareModeAction = useDocumentStore((state) => state.updateShareMode);
   const restoreVersionAction = useDocumentStore((state) => state.restoreVersion);
   const saveVersionAction = useDocumentStore((state) => state.saveVersion);
 
@@ -135,7 +143,12 @@ export function DocumentShell() {
         .documents.some((document) => document.id === selectedId);
 
       if (!hasAccess && useDocumentStore.getState().selectedId === selectedId) {
-        useDocumentStore.getState().setSelectedId(null);
+        clearSelection();
+        return;
+      }
+
+      if (hasAccess && useDocumentStore.getState().selectedId === selectedId) {
+        await loadSelectedDocument(token, selectedId);
       }
     };
 
@@ -151,7 +164,9 @@ export function DocumentShell() {
     shareDocumentId,
     syncState,
     token,
-    viewMode
+    viewMode,
+    clearSelection,
+    loadSelectedDocument
   ]);
 
   const selectedDocumentMeta = useMemo(
@@ -267,6 +282,14 @@ export function DocumentShell() {
     await disableCollaborationAction(token, selectedDocument);
   }
 
+  async function handleUpdateShareMode() {
+    if (!token || !selectedDocument || !selectedDocument.isOwner) {
+      return;
+    }
+
+    await updateShareModeAction(token, selectedDocument);
+  }
+
   async function handleRestoreVersion(versionId: string) {
     if (!token || !selectedDocument) {
       return;
@@ -302,6 +325,7 @@ export function DocumentShell() {
 
         <DocumentDetailPanel
           collaborationPassword={collaborationPassword}
+          collaborationReadOnly={collaborationReadOnly}
           detailError={detailError}
           isLoadingDetail={isLoadingDetail}
           isLoadingVersions={isLoadingVersions}
@@ -311,10 +335,12 @@ export function DocumentShell() {
           isSavingTitle={isSavingTitle}
           isUpdatingCollaboration={isUpdatingCollaboration}
           onCollaborationPasswordChange={setCollaborationPassword}
+          onCollaborationReadOnlyChange={setCollaborationReadOnly}
           onCopyShareLink={handleCopyShareLink}
           onDeleteDocument={handleDeleteDocument}
           onDisableCollaboration={handleDisableCollaboration}
           onEnableCollaboration={handleEnableCollaboration}
+          onUpdateShareMode={handleUpdateShareMode}
           onPresenceChange={setPresentUsers}
           onRenameDocument={handleRenameDocument}
           onRenameValueChange={setRenameValue}

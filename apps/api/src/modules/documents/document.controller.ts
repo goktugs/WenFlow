@@ -96,6 +96,8 @@ export async function deleteDocumentHandler(
     return;
   }
 
+  await disconnectCollaborators(documentId, ownerId);
+
   response.status(204).send();
 }
 
@@ -128,7 +130,8 @@ export async function updateDocumentCollaborationHandler(
       documentId,
       ownerId,
       enabled: input.enabled,
-      password: input.password
+      password: input.password,
+      readOnly: input.readOnly
     });
 
     if (result.status === "not-found") {
@@ -136,9 +139,7 @@ export async function updateDocumentCollaborationHandler(
       return;
     }
 
-    if (!input.enabled) {
-      await disconnectCollaborators(documentId, ownerId);
-    }
+    await disconnectCollaborators(documentId, ownerId);
 
     response.json({ document: result.document });
   } catch (error) {
