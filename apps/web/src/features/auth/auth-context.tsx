@@ -1,99 +1,30 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode
-} from "react";
-import { getMe, login, register } from "./auth.api";
-import {
-  clearStoredToken,
-  getStoredToken,
-  setStoredToken
-} from "./auth.storage";
-import { toast } from "sonner";
-import type { AuthUser } from "./auth.types";
-
-type AuthContextValue = {
-  user: AuthUser | null;
-  token: string | null;
-  isLoading: boolean;
-  login: (input: { email: string; password: string }) => Promise<void>;
-  register: (input: {
-    email: string;
-    password: string;
-    name: string;
-  }) => Promise<void>;
-  logout: () => void;
-};
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+import { useEffect, type ReactNode } from "react";
+import { useAuthStore } from "./auth.store";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => getStoredToken());
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const hydrateSession = useAuthStore((state) => state.hydrateSession);
 
   useEffect(() => {
-    const storedToken = getStoredToken();
+    void hydrateSession();
+  }, [hydrateSession]);
 
-    if (!storedToken) {
-      setIsLoading(false);
-      return;
-    }
-
-    getMe(storedToken)
-      .then((nextUser) => {
-        setUser(nextUser);
-        setToken(storedToken);
-      })
-      .catch(() => {
-        clearStoredToken();
-        setToken(null);
-        setUser(null);
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
-  }, []);
-
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      user,
-      token,
-      isLoading,
-      async login(input) {
-        const result = await login(input);
-        setStoredToken(result.token);
-        setToken(result.token);
-        setUser(result.user);
-      },
-      async register(input) {
-        const result = await register(input);
-        setStoredToken(result.token);
-        setToken(result.token);
-        setUser(result.user);
-      },
-      logout() {
-        clearStoredToken();
-        setToken(null);
-        setUser(null);
-        toast.success("Signed out");
-      }
-    }),
-    [isLoading, token, user]
-  );
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <>{children}</>;
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
+  const user = useAuthStore((state) => state.user);
+  const token = useAuthStore((state) => state.token);
+  const isLoading = useAuthStore((state) => state.isLoading);
+  const login = useAuthStore((state) => state.login);
+  const register = useAuthStore((state) => state.register);
+  const logout = useAuthStore((state) => state.logout);
 
-  if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
-  }
-
-  return context;
+  return {
+    user,
+    token,
+    isLoading,
+    login,
+    register,
+    logout
+  };
 }

@@ -1,86 +1,81 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog";
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot
-} from "@/components/ui/input-otp";
 import { useAuth } from "@/features/auth/auth-context";
-import { EditorShell } from "@/features/editor/editor-shell";
-import {
-  createDocument,
-  deleteDocument,
-  getDocument,
-  joinSharedDocument,
-  listDocumentVersions,
-  listDocuments,
-  renameDocument,
-  restoreDocument,
-  restoreDocumentVersion,
-  updateDocumentCollaboration
-} from "./document.api";
-import type {
-  DocumentDetail,
-  DocumentListItem,
-  DocumentVersion
-} from "./document.types";
-
-type ViewMode = "active" | "trash";
+import { useDocumentStore } from "./document.store";
+import { DocumentSidebar } from "./document-sidebar";
+import { DocumentDetailPanel } from "./document-detail-panel";
+import { ShareJoinDialog } from "./share-join-dialog";
 
 export function DocumentShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, token, user } = useAuth();
-  const [viewMode, setViewMode] = useState<ViewMode>("active");
-  const [documents, setDocuments] = useState<DocumentListItem[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [selectedDocument, setSelectedDocument] = useState<DocumentDetail | null>(
-    null
+
+  const viewMode = useDocumentStore((state) => state.viewMode);
+  const documents = useDocumentStore((state) => state.documents);
+  const selectedId = useDocumentStore((state) => state.selectedId);
+  const selectedDocument = useDocumentStore((state) => state.selectedDocument);
+  const renameValue = useDocumentStore((state) => state.renameValue);
+  const joinPassword = useDocumentStore((state) => state.joinPassword);
+  const collaborationPassword = useDocumentStore(
+    (state) => state.collaborationPassword
   );
-  const [renameValue, setRenameValue] = useState("");
-  const [joinPassword, setJoinPassword] = useState("");
-  const [collaborationPassword, setCollaborationPassword] = useState("");
-  const [isLoadingList, setIsLoadingList] = useState(true);
-  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-  const [isSavingTitle, setIsSavingTitle] = useState(false);
-  const [isMutating, setIsMutating] = useState(false);
-  const [isJoining, setIsJoining] = useState(false);
-  const [isUpdatingCollaboration, setIsUpdatingCollaboration] = useState(false);
-  const [listError, setListError] = useState<string | null>(null);
-  const [detailError, setDetailError] = useState<string | null>(null);
-  const [isLoadingVersions, setIsLoadingVersions] = useState(false);
-  const [isRestoringVersion, setIsRestoringVersion] = useState(false);
-  const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null);
-  const [syncState, setSyncState] = useState<
-    "connecting" | "connected" | "disconnected" | "error"
-  >("connecting");
-  const [presentUsers, setPresentUsers] = useState<
-    Array<{
-      id: string;
-      label: string;
-      color: string;
-      status: "viewing" | "editing";
-    }>
-  >([]);
-  const [versions, setVersions] = useState<DocumentVersion[]>([]);
+  const isLoadingList = useDocumentStore((state) => state.isLoadingList);
+  const isLoadingDetail = useDocumentStore((state) => state.isLoadingDetail);
+  const isSavingTitle = useDocumentStore((state) => state.isSavingTitle);
+  const isMutating = useDocumentStore((state) => state.isMutating);
+  const isJoining = useDocumentStore((state) => state.isJoining);
+  const isUpdatingCollaboration = useDocumentStore(
+    (state) => state.isUpdatingCollaboration
+  );
+  const listError = useDocumentStore((state) => state.listError);
+  const detailError = useDocumentStore((state) => state.detailError);
+  const isLoadingVersions = useDocumentStore((state) => state.isLoadingVersions);
+  const isRestoringVersion = useDocumentStore(
+    (state) => state.isRestoringVersion
+  );
+  const restoringVersionId = useDocumentStore((state) => state.restoringVersionId);
+  const syncState = useDocumentStore((state) => state.syncState);
+  const presentUsers = useDocumentStore((state) => state.presentUsers);
+  const versions = useDocumentStore((state) => state.versions);
+
+  const setViewMode = useDocumentStore((state) => state.setViewMode);
+  const setSelectedId = useDocumentStore((state) => state.setSelectedId);
+  const setRenameValue = useDocumentStore((state) => state.setRenameValue);
+  const setJoinPassword = useDocumentStore((state) => state.setJoinPassword);
+  const setCollaborationPassword = useDocumentStore(
+    (state) => state.setCollaborationPassword
+  );
+  const setSyncState = useDocumentStore((state) => state.setSyncState);
+  const setPresentUsers = useDocumentStore((state) => state.setPresentUsers);
+  const resetSelectionState = useDocumentStore((state) => state.resetSelectionState);
+  const loadDocuments = useDocumentStore((state) => state.loadDocuments);
+  const loadSelectedDocument = useDocumentStore(
+    (state) => state.loadSelectedDocument
+  );
+  const loadVersions = useDocumentStore((state) => state.loadVersions);
+  const createDocumentAction = useDocumentStore((state) => state.createDocument);
+  const joinSharedDocumentAction = useDocumentStore(
+    (state) => state.joinSharedDocument
+  );
+  const renameDocumentAction = useDocumentStore((state) => state.renameDocument);
+  const deleteDocumentAction = useDocumentStore((state) => state.deleteDocument);
+  const restoreDocumentAction = useDocumentStore((state) => state.restoreDocument);
+  const enableCollaborationAction = useDocumentStore(
+    (state) => state.enableCollaboration
+  );
+  const disableCollaborationAction = useDocumentStore(
+    (state) => state.disableCollaboration
+  );
+  const restoreVersionAction = useDocumentStore((state) => state.restoreVersion);
+
   const shareDocumentId = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);
     const share = searchParams.get("share");
 
     return share?.trim() || null;
   }, [location.search]);
-  const passwordLength = 4;
   const passwordSlots = useMemo(() => [0, 1, 2, 3], []);
 
   useEffect(() => {
@@ -88,8 +83,8 @@ export function DocumentShell() {
       return;
     }
 
-    void loadDocuments(viewMode);
-  }, [token, viewMode]);
+    void loadDocuments(token, viewMode, shareDocumentId);
+  }, [loadDocuments, shareDocumentId, token, viewMode]);
 
   useEffect(() => {
     if (!shareDocumentId) {
@@ -97,164 +92,41 @@ export function DocumentShell() {
     }
 
     setViewMode("active");
-  }, [shareDocumentId]);
+  }, [setViewMode, shareDocumentId]);
 
   useEffect(() => {
     if (!token || !selectedId) {
-      setSelectedDocument(null);
-      setRenameValue("");
-      setCollaborationPassword("");
-      setDetailError(null);
-      setSyncState("connecting");
-      setPresentUsers([]);
-      setVersions([]);
-      setRestoringVersionId(null);
+      resetSelectionState();
       return;
     }
 
-    setIsLoadingDetail(true);
-    setDetailError(null);
-
-    getDocument(token, selectedId)
-      .then((document) => {
-        setSelectedDocument(document);
-        setRenameValue(document.title);
-        setCollaborationPassword("");
-        setSyncState("connecting");
-        setPresentUsers([]);
-      })
-      .catch((error) => {
-        const message =
-          error instanceof Error ? error.message : "Unable to load document";
-        toast.error(message);
-        setDetailError(message);
-        setSelectedDocument(null);
-      })
-      .finally(() => {
-        setIsLoadingDetail(false);
-      });
-
-    setIsLoadingVersions(true);
-
-    listDocumentVersions(token, selectedId)
-      .then((nextVersions) => {
-        setVersions(nextVersions);
-      })
-      .catch((error) => {
-        toast.error(error instanceof Error ? error.message : "Unable to load versions");
-        setVersions([]);
-      })
-      .finally(() => {
-        setIsLoadingVersions(false);
-      });
-  }, [selectedId, token]);
+    void loadSelectedDocument(token, selectedId);
+    void loadVersions(token, selectedId);
+  }, [loadSelectedDocument, loadVersions, resetSelectionState, selectedId, token]);
 
   const selectedDocumentMeta = useMemo(
     () => documents.find((document) => document.id === selectedId) ?? null,
     [documents, selectedId]
   );
 
-  function syncDocumentInList(nextDocument: DocumentDetail) {
-    setDocuments((currentDocuments) =>
-      currentDocuments.map((document) =>
-        document.id === nextDocument.id
-          ? {
-              ...document,
-              title: nextDocument.title,
-              updatedAt: nextDocument.updatedAt,
-              deletedAt: nextDocument.deletedAt,
-              owner: nextDocument.owner,
-              isOwner: nextDocument.isOwner,
-              isCollaborationEnabled: nextDocument.isCollaborationEnabled
-            }
-          : document
-      )
-    );
-  }
-
-  async function loadDocuments(nextMode: ViewMode) {
-    if (!token) {
-      return;
-    }
-
-    setIsLoadingList(true);
-    setListError(null);
-
-    try {
-      const nextDocuments = await listDocuments(token, nextMode === "trash");
-      setDocuments(nextDocuments);
-
-      if (nextDocuments.length === 0) {
-        setSelectedId(null);
-        setSelectedDocument(null);
-        setRenameValue("");
-        return;
-      }
-
-      setSelectedId((currentId) =>
-        shareDocumentId &&
-        nextDocuments.some((document) => document.id === shareDocumentId)
-          ? shareDocumentId
-          : currentId && nextDocuments.some((document) => document.id === currentId)
-            ? currentId
-            : nextDocuments[0].id
-      );
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unable to load documents";
-      toast.error(message);
-      setListError(message);
-    } finally {
-      setIsLoadingList(false);
-    }
-  }
-
   async function handleCreateDocument() {
     if (!token) {
       return;
     }
 
-    setIsMutating(true);
-
-    try {
-      const document = await createDocument(token);
-      toast.success("Document created");
-      setViewMode("active");
-      await loadDocuments("active");
-      setSelectedId(document.id);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to create document");
-    } finally {
-      setIsMutating(false);
-    }
+    await createDocumentAction(token);
+    await loadDocuments(token, "active", shareDocumentId);
   }
 
   async function handleJoinSharedDocument() {
-    if (!token || !shareDocumentId || joinPassword.trim().length !== passwordLength) {
+    if (!token || !shareDocumentId || joinPassword.trim().length !== 4) {
       return;
     }
 
-    setIsJoining(true);
-
-    try {
-      const document = await joinSharedDocument(
-        token,
-        shareDocumentId,
-        joinPassword
-      );
-      toast.success("Joined shared document");
-      setJoinPassword("");
-      setViewMode("active");
-      await loadDocuments("active");
-      setSelectedId(document.id);
-      if (shareDocumentId) {
-        navigate("/app", { replace: true });
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to join document");
-    } finally {
-      setIsJoining(false);
-    }
+    await joinSharedDocumentAction(token, shareDocumentId, () => {
+      navigate("/app", { replace: true });
+    });
+    await loadDocuments(token, "active", null);
   }
 
   async function handleCopyShareLink() {
@@ -277,22 +149,7 @@ export function DocumentShell() {
       return;
     }
 
-    setIsSavingTitle(true);
-
-    try {
-      const updatedDocument = await renameDocument(
-        token,
-        selectedDocument.id,
-        renameValue
-      );
-      toast.success("Document renamed");
-      setSelectedDocument(updatedDocument);
-      syncDocumentInList(updatedDocument);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to rename document");
-    } finally {
-      setIsSavingTitle(false);
-    }
+    await renameDocumentAction(token, selectedDocument);
   }
 
   async function handleDeleteDocument() {
@@ -300,17 +157,9 @@ export function DocumentShell() {
       return;
     }
 
-    setIsMutating(true);
-
-    try {
-      await deleteDocument(token, selectedDocumentMeta.id);
-      toast.success("Moved to trash");
-      await loadDocuments(viewMode);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to delete document");
-    } finally {
-      setIsMutating(false);
-    }
+    await deleteDocumentAction(token, selectedDocumentMeta, viewMode, async (nextMode) => {
+      await loadDocuments(token, nextMode, shareDocumentId);
+    });
   }
 
   async function handleRestoreDocument() {
@@ -318,17 +167,9 @@ export function DocumentShell() {
       return;
     }
 
-    setIsMutating(true);
-
-    try {
-      await restoreDocument(token, selectedDocumentMeta.id);
-      toast.success("Document restored");
-      await loadDocuments("trash");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to restore document");
-    } finally {
-      setIsMutating(false);
-    }
+    await restoreDocumentAction(token, selectedDocumentMeta, async (nextMode) => {
+      await loadDocuments(token, nextMode, shareDocumentId);
+    });
   }
 
   async function handleEnableCollaboration() {
@@ -336,37 +177,12 @@ export function DocumentShell() {
       return;
     }
 
-    if (collaborationPassword.trim().length !== passwordLength) {
-      toast.error(`Set a ${passwordLength}-character collaboration password first`);
+    if (collaborationPassword.trim().length !== 4) {
+      toast.error("Set a 4-digit collaboration password first");
       return;
     }
 
-    setIsUpdatingCollaboration(true);
-
-    try {
-      const updatedDocument = await updateDocumentCollaboration(
-        token,
-        selectedDocument.id,
-        {
-          enabled: true,
-          password: collaborationPassword
-        }
-      );
-      toast.success(
-        selectedDocument.isCollaborationEnabled
-          ? "Collaboration password updated"
-          : "Shared editing enabled"
-      );
-      setSelectedDocument(updatedDocument);
-      syncDocumentInList(updatedDocument);
-      setCollaborationPassword("");
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Unable to update collaboration"
-      );
-    } finally {
-      setIsUpdatingCollaboration(false);
-    }
+    await enableCollaborationAction(token, selectedDocument);
   }
 
   async function handleDisableCollaboration() {
@@ -374,27 +190,7 @@ export function DocumentShell() {
       return;
     }
 
-    setIsUpdatingCollaboration(true);
-
-    try {
-      const updatedDocument = await updateDocumentCollaboration(
-        token,
-        selectedDocument.id,
-        {
-          enabled: false
-        }
-      );
-      toast.success("Shared editing disabled");
-      setSelectedDocument(updatedDocument);
-      syncDocumentInList(updatedDocument);
-      setCollaborationPassword("");
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Unable to update collaboration"
-      );
-    } finally {
-      setIsUpdatingCollaboration(false);
-    }
+    await disableCollaborationAction(token, selectedDocument);
   }
 
   async function handleRestoreVersion(versionId: string) {
@@ -402,455 +198,73 @@ export function DocumentShell() {
       return;
     }
 
-    setIsRestoringVersion(true);
-    setRestoringVersionId(versionId);
-
-    try {
-      const restoredDocument = await restoreDocumentVersion(
-        token,
-        selectedDocument.id,
-        versionId
-      );
-      toast.success("Version restored");
-      setSelectedDocument(restoredDocument);
-      setRenameValue(restoredDocument.title);
-      syncDocumentInList(restoredDocument);
-      const nextVersions = await listDocumentVersions(token, restoredDocument.id);
-      setVersions(nextVersions);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to restore version");
-    } finally {
-      setIsRestoringVersion(false);
-      setRestoringVersionId(null);
-    }
+    await restoreVersionAction(token, selectedDocument, versionId);
   }
 
   return (
     <main className="min-h-screen bg-background p-4">
       <div className="mx-auto grid min-h-[calc(100vh-2rem)] max-w-7xl grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="flex flex-col rounded-3xl border border-border bg-card/95 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-          <div className="space-y-4 border-b border-border pb-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-                  WenFlow
-                </p>
-                <h1 className="mt-2 text-xl font-semibold">{user?.name}'s workspace</h1>
-              </div>
-              <Button onClick={logout} size="sm" variant="outline">
-                Sign out
-              </Button>
-            </div>
+        <DocumentSidebar
+          documents={documents}
+          isLoadingList={isLoadingList}
+          isMutating={isMutating}
+          listError={listError}
+          onChangeViewMode={setViewMode}
+          onCreateDocument={handleCreateDocument}
+          onLogout={logout}
+          onSelectDocument={setSelectedId}
+          selectedId={selectedId}
+          userName={user?.name}
+          viewMode={viewMode}
+        />
 
-            <Button
-              className="w-full justify-start"
-              disabled={isMutating}
-              onClick={handleCreateDocument}
-            >
-              New document
-            </Button>
-
-            <div className="space-y-2 rounded-2xl border border-border bg-background/50 p-3">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                Shared access
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Open a share link to join a shared document. If the link is valid,
-                a password dialog will appear automatically.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant={viewMode === "active" ? "default" : "outline"}
-                onClick={() => setViewMode("active")}
-              >
-                Documents
-              </Button>
-              <Button
-                variant={viewMode === "trash" ? "default" : "outline"}
-                onClick={() => setViewMode("trash")}
-              >
-                Trash
-              </Button>
-            </div>
-          </div>
-
-          <div className="mt-4 flex-1 overflow-y-auto">
-            {isLoadingList ? (
-              <p className="px-2 text-sm text-muted-foreground">Loading documents...</p>
-            ) : listError ? (
-              <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-6 text-sm text-destructive">
-                {listError}
-              </div>
-            ) : documents.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
-                {viewMode === "active"
-                  ? "No documents yet. Create your first one from the sidebar."
-                  : "Trash is empty."}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {documents.map((document) => (
-                  <button
-                    key={document.id}
-                    className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
-                      selectedId === document.id
-                        ? "border-primary/30 bg-primary/10 text-foreground"
-                        : "border-transparent bg-background/50 text-muted-foreground hover:border-border hover:text-foreground"
-                    }`}
-                    onClick={() => setSelectedId(document.id)}
-                    type="button"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="truncate text-sm font-medium">{document.title}</p>
-                      <span className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em]">
-                        {document.isOwner ? "Mine" : "Shared"}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {document.isOwner
-                        ? "Owner"
-                        : `Owner: ${document.owner.name}`}
-                      {document.isCollaborationEnabled ? " · Live collaboration" : ""}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Updated {new Date(document.updatedAt).toLocaleString()}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </aside>
-
-        <section className="rounded-3xl border border-border bg-card/95 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-          {!selectedId ? (
-            <div className="flex h-full min-h-[60vh] items-center justify-center rounded-2xl border border-dashed border-border text-sm text-muted-foreground">
-              Select a document to continue.
-            </div>
-          ) : isLoadingDetail ? (
-            <div className="flex h-full min-h-[60vh] items-center justify-center rounded-2xl border border-dashed border-border text-sm text-muted-foreground">
-              Loading document...
-            </div>
-          ) : detailError ? (
-            <div className="flex h-full min-h-[60vh] items-center justify-center rounded-2xl border border-destructive/30 bg-destructive/10 px-6 text-sm text-destructive">
-              {detailError}
-            </div>
-          ) : selectedDocument ? (
-            <div className="flex h-full min-h-[60vh] flex-col gap-6">
-              <div className="flex flex-col gap-4 border-b border-border pb-6">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      {viewMode === "trash"
-                        ? "Deleted document"
-                        : selectedDocument.isOwner
-                          ? "Document details"
-                          : `Shared by ${selectedDocument.owner.name}`}
-                    </p>
-                    <h2 className="text-3xl font-semibold tracking-tight">
-                      {selectedDocument.title}
-                    </h2>
-                  </div>
-
-                  {viewMode === "active" && selectedDocument.isOwner ? (
-                    <Button
-                      disabled={isMutating}
-                      onClick={handleDeleteDocument}
-                      variant="outline"
-                    >
-                      Move to trash
-                    </Button>
-                  ) : null}
-
-                  {viewMode === "trash" && selectedDocument.isOwner ? (
-                    <Button
-                      disabled={isMutating}
-                      onClick={handleRestoreDocument}
-                      variant="outline"
-                    >
-                      Restore
-                    </Button>
-                  ) : null}
-                </div>
-
-                {viewMode === "active" && selectedDocument.isOwner ? (
-                  <div className="flex max-w-xl gap-3">
-                    <Input
-                      value={renameValue}
-                      onChange={(event) => setRenameValue(event.target.value)}
-                      placeholder="Document title"
-                    />
-                    <Button disabled={isSavingTitle} onClick={handleRenameDocument}>
-                      {isSavingTitle ? "Saving..." : "Rename"}
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-border bg-background/60 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                    Created
-                  </p>
-                  <p className="mt-2 text-sm">
-                    {new Date(selectedDocument.createdAt).toLocaleString()}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-border bg-background/60 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                    Updated
-                  </p>
-                  <p className="mt-2 text-sm">
-                    {new Date(selectedDocument.updatedAt).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-
-              {viewMode === "active" ? (
-                <div className="rounded-2xl border border-border bg-background/60 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                        Collaboration
-                      </p>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        {selectedDocument.isOwner
-                          ? "Turn on shared editing with a password, then send the document code and password to another user."
-                          : "You joined this document through shared editing."}
-                      </p>
-                    </div>
-                    <span className="rounded-full border border-border bg-card px-3 py-1 text-xs text-foreground">
-                      {selectedDocument.isCollaborationEnabled ? "Shared" : "Private"}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 space-y-3">
-                    {selectedDocument.isOwner ? (
-                      <>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            disabled={!selectedDocument.isCollaborationEnabled}
-                            onClick={handleCopyShareLink}
-                            variant="outline"
-                          >
-                            Copy share link
-                          </Button>
-                        </div>
-                        <div className="space-y-2">
-                          <p className="text-xs text-muted-foreground">
-                            {selectedDocument.isCollaborationEnabled
-                              ? "Set a new 4-digit collaboration password"
-                              : "Set a 4-digit collaboration password"}
-                          </p>
-                          <InputOTP
-                            maxLength={passwordLength}
-                            value={collaborationPassword}
-                            onChange={setCollaborationPassword}
-                            containerClassName="justify-start"
-                          >
-                            <InputOTPGroup>
-                              {passwordSlots.map((slotIndex) => (
-                                <InputOTPSlot key={slotIndex} index={slotIndex} />
-                              ))}
-                            </InputOTPGroup>
-                          </InputOTP>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            disabled={isUpdatingCollaboration}
-                            onClick={handleEnableCollaboration}
-                          >
-                            {isUpdatingCollaboration
-                              ? "Saving..."
-                              : selectedDocument.isCollaborationEnabled
-                                ? "Update password"
-                                : "Enable collaboration"}
-                          </Button>
-                          {selectedDocument.isCollaborationEnabled ? (
-                            <Button
-                              disabled={isUpdatingCollaboration}
-                              onClick={handleDisableCollaboration}
-                              variant="outline"
-                            >
-                              Disable collaboration
-                            </Button>
-                          ) : null}
-                        </div>
-                      </>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Owner: {selectedDocument.owner.name} ({selectedDocument.owner.email})
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="rounded-2xl border border-border bg-background/60 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                      Presence
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Users currently connected to this document.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {presentUsers.length > 0 ? (
-                      presentUsers.map((presenceUser) => (
-                        <span
-                          key={presenceUser.id}
-                          className="rounded-full border px-3 py-1 text-xs text-foreground"
-                          style={{
-                            borderColor: `${presenceUser.color}66`,
-                            backgroundColor: `${presenceUser.color}1A`
-                          }}
-                        >
-                          {presenceUser.label} ·{" "}
-                          {presenceUser.status === "editing"
-                            ? "Editing"
-                            : "Viewing"}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="rounded-full border border-dashed border-border px-3 py-1 text-xs text-muted-foreground">
-                        No active collaborators
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-border bg-background/60 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                      Version history
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Snapshot history for this document.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 space-y-2">
-                  {isLoadingVersions ? (
-                    <p className="text-sm text-muted-foreground">Loading versions...</p>
-                  ) : versions.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                      No saved versions yet.
-                    </p>
-                  ) : (
-                    versions.map((version) => (
-                      <div
-                        key={version.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-3"
-                      >
-                        <div>
-                          <p className="text-sm font-medium text-foreground">
-                            v{version.versionNumber} · {version.titleSnapshot}
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {new Date(version.createdAt).toLocaleString()}
-                          </p>
-                        </div>
-
-                        <Button
-                          disabled={isRestoringVersion}
-                          onClick={() => handleRestoreVersion(version.id)}
-                          size="sm"
-                          variant="outline"
-                        >
-                          {isRestoringVersion && restoringVersionId === version.id
-                            ? "Restoring..."
-                            : "Restore"}
-                        </Button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {viewMode === "active" ? (
-                <EditorShell
-                  documentId={selectedDocument.id}
-                  onPresenceChange={setPresentUsers}
-                  onSyncStateChange={setSyncState}
-                  syncState={syncState}
-                  token={token!}
-                  user={{
-                    id: user!.id,
-                    name: user!.name,
-                    email: user!.email
-                  }}
-                />
-              ) : (
-                <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-border bg-background/40 p-10 text-sm text-muted-foreground">
-                  Restore this document to continue editing it.
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex h-full min-h-[60vh] items-center justify-center rounded-2xl border border-dashed border-border text-sm text-muted-foreground">
-              Unable to load the selected document.
-            </div>
-          )}
-        </section>
+        <DocumentDetailPanel
+          collaborationPassword={collaborationPassword}
+          detailError={detailError}
+          isLoadingDetail={isLoadingDetail}
+          isLoadingVersions={isLoadingVersions}
+          isMutating={isMutating}
+          isRestoringVersion={isRestoringVersion}
+          isSavingTitle={isSavingTitle}
+          isUpdatingCollaboration={isUpdatingCollaboration}
+          onCollaborationPasswordChange={setCollaborationPassword}
+          onCopyShareLink={handleCopyShareLink}
+          onDeleteDocument={handleDeleteDocument}
+          onDisableCollaboration={handleDisableCollaboration}
+          onEnableCollaboration={handleEnableCollaboration}
+          onPresenceChange={setPresentUsers}
+          onRenameDocument={handleRenameDocument}
+          onRenameValueChange={setRenameValue}
+          onRestoreDocument={handleRestoreDocument}
+          onRestoreVersion={handleRestoreVersion}
+          onSyncStateChange={setSyncState}
+          passwordSlots={passwordSlots}
+          presentUsers={presentUsers}
+          renameValue={renameValue}
+          restoringVersionId={restoringVersionId}
+          selectedDocument={selectedDocument}
+          selectedId={selectedId}
+          syncState={syncState}
+          token={token ?? ""}
+          user={user!}
+          versions={versions}
+          viewMode={viewMode}
+        />
       </div>
 
-      <Dialog
-        open={Boolean(shareDocumentId)}
+      <ShareJoinDialog
+        isJoining={isJoining}
+        joinPassword={joinPassword}
+        onJoinPasswordChange={setJoinPassword}
         onOpenChange={(open) => {
           if (!open) {
             navigate("/app", { replace: true });
           }
         }}
-      >
-        <DialogContent showCloseButton={!isJoining}>
-          <DialogHeader>
-            <DialogTitle>Join Shared Document</DialogTitle>
-            <DialogDescription>
-              Enter the 4-digit collaboration password to open this shared
-              document.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex justify-center py-2">
-            <InputOTP
-              maxLength={passwordLength}
-              value={joinPassword}
-              onChange={setJoinPassword}
-              containerClassName="justify-center"
-            >
-              <InputOTPGroup>
-                {passwordSlots.map((slotIndex) => (
-                  <InputOTPSlot key={slotIndex} index={slotIndex} />
-                ))}
-              </InputOTPGroup>
-            </InputOTP>
-          </div>
-
-          <DialogFooter>
-            <Button
-              disabled={isJoining}
-              onClick={() => navigate("/app", { replace: true })}
-              variant="outline"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={isJoining || joinPassword.length !== passwordLength}
-              onClick={handleJoinSharedDocument}
-            >
-              {isJoining ? "Joining..." : "Join document"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onSubmit={handleJoinSharedDocument}
+        open={Boolean(shareDocumentId)}
+        passwordSlots={passwordSlots}
+      />
     </main>
   );
 }
