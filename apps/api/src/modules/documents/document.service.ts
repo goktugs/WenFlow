@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
+import { maybeCreateDocumentVersion } from "../versions/version.service.js";
 
 type DocumentListParams = {
   ownerId: string;
@@ -82,15 +83,49 @@ export async function updateDocument(
   input: {
     title?: string;
     contentJson?: unknown;
+    createdByUserId?: string | null;
   }
 ) {
+  const currentDocument = await prisma.document.findFirst({
+    where: {
+      id,
+      ownerId
+    },
+    select: {
+      id: true,
+      title: true,
+      contentJson: true
+    }
+  });
+
+  if (!currentDocument) {
+    return { count: 0 };
+  }
+
+  const nextTitle =
+    typeof input.title !== "undefined" ? input.title.trim() : currentDocument.title;
+  const nextContent =
+    typeof input.contentJson !== "undefined"
+      ? input.contentJson
+      : currentDocument.contentJson;
+
+  await maybeCreateDocumentVersion({
+    documentId: currentDocument.id,
+    ownerId,
+    createdByUserId: input.createdByUserId,
+    previousTitle: currentDocument.title,
+    previousContent: currentDocument.contentJson,
+    nextTitle,
+    nextContent
+  });
+
   return prisma.document.updateMany({
     where: {
       id,
       ownerId
     },
     data: {
-      ...(typeof input.title !== "undefined" ? { title: input.title.trim() } : {}),
+      ...(typeof input.title !== "undefined" ? { title: nextTitle } : {}),
       ...(typeof input.contentJson !== "undefined"
         ? { contentJson: input.contentJson as Prisma.InputJsonValue }
         : {})

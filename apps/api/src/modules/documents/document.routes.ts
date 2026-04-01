@@ -8,6 +8,10 @@ import {
   restoreDocumentHandler,
   updateDocumentHandler
 } from "./document.controller.js";
+import {
+  listDocumentVersionsHandler,
+  restoreDocumentVersionHandler
+} from "../versions/version.controller.js";
 
 export const documentRouter = Router();
 
@@ -19,4 +23,5 @@ documentRouter.get("/:id", getDocumentHandler);
 documentRouter.patch("/:id", updateDocumentHandler);
 documentRouter.delete("/:id", deleteDocumentHandler);
 documentRouter.post("/:id/restore", restoreDocumentHandler);
-
+documentRouter.get("/:id/versions", listDocumentVersionsHandler);
+documentRouter.post("/:id/versions/:versionId/restore", restoreDocumentVersionHandler);

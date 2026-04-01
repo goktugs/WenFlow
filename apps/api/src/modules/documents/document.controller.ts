@@ -57,7 +57,10 @@ export async function updateDocumentHandler(
     const ownerId = request.authUser!.id;
     const documentId = getDocumentId(request);
     const input = updateDocumentSchema.parse(request.body);
-    const result = await updateDocument(documentId, ownerId, input);
+    const result = await updateDocument(documentId, ownerId, {
+      ...input,
+      createdByUserId: ownerId
+    });
 
     if (result.count === 0) {
       response.status(404).json({ message: "Document not found" });
