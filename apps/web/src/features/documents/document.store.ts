@@ -466,7 +466,9 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       const status = await saveDocumentVersion(token, document.id);
 
       if (status === "no-changes") {
-        toast.message("No new changes to save");
+        toast.message("No new changes to save", {
+          description: "If you just made edits, wait a moment and try again."
+        });
       } else {
         toast.success("Version saved");
       }

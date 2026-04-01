@@ -44,7 +44,7 @@ export function DocumentSidebar({
   });
 
   return (
-    <aside className="flex flex-col rounded-3xl border border-border bg-card/95 p-3 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+    <aside className="flex flex-col rounded-3xl border border-border bg-card/95 p-3 shadow-[0_24px_80px_rgba(0,0,0,0.28)] lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:overflow-hidden">
       <div className="space-y-3 border-b border-border pb-3">
         <div className="space-y-3">
           <div>
@@ -94,7 +94,7 @@ export function DocumentSidebar({
         </Tabs>
       </div>
 
-      <div className="mt-3 flex-1 overflow-y-auto">
+      <div className="mt-3 flex-1 overflow-y-auto min-h-0">
         {isLoadingList ? (
           <div className="flex flex-col items-center justify-center gap-3 px-2 py-10 text-sm text-muted-foreground">
             <Spinner className="size-7" />

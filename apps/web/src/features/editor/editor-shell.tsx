@@ -63,7 +63,7 @@ export function EditorShell({
   const [slashState, setSlashState] = useState<SlashState | null>(null);
   const localUserColor = useMemo(() => getUserColor(user.id), [user.id]);
   const editorWrapperRef = useRef<HTMLDivElement | null>(null);
-  const lastAppliedRestoreNonceRef = useRef(0);
+  const lastAppliedRestoreNonceRef = useRef(restoreNonce);
 
   const buildPresenceUsers = (
     awarenessStates: Map<number, { user?: unknown }>

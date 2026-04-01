@@ -109,6 +109,7 @@ export function DocumentDetailPanel({
               {viewMode !== "trash" ? (
                 <div className="sticky top-6">
                   <EditorShell
+                    key={`${selectedDocument.id}:${editorRestoreNonce}`}
                     documentId={selectedDocument.id}
                     isReadOnly={selectedDocument.isReadOnly}
                     restoredContent={editorRestoreContent}

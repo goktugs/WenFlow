@@ -230,39 +230,15 @@ export async function restoreDocumentVersion(input: {
     return { status: "version-not-found" as const };
   }
 
-  await prisma.$transaction(async (tx) => {
-    const lastVersion = await tx.documentVersion.findFirst({
-      where: {
-        documentId: input.documentId
-      },
-      orderBy: {
-        versionNumber: "desc"
-      },
-      select: {
-        versionNumber: true
-      }
-    });
-
-    await tx.documentVersion.create({
-      data: {
-        documentId: input.documentId,
-        createdByUserId: input.restoredByUserId,
-        titleSnapshot: document.title,
-        contentSnapshot: toPrismaJsonValue(document.contentJson),
-        versionNumber: (lastVersion?.versionNumber ?? 0) + 1
-      }
-    });
-
-    await tx.document.update({
-      where: {
-        id: input.documentId
-      },
-      data: {
-        title: version.titleSnapshot,
-        contentJson: toPrismaJsonValue(version.contentSnapshot),
-        collaborationState: null
-      }
-    });
+  await prisma.document.update({
+    where: {
+      id: input.documentId
+    },
+    data: {
+      title: version.titleSnapshot,
+      contentJson: toPrismaJsonValue(version.contentSnapshot),
+      collaborationState: null
+    }
   });
 
   const updatedDocument = await prisma.document.findUnique({
@@ -275,13 +251,34 @@ export async function restoreDocumentVersion(input: {
       contentJson: true,
       deletedAt: true,
       createdAt: true,
-      updatedAt: true
+      updatedAt: true,
+      ownerId: true,
+      isCollaborationEnabled: true,
+      isCollaborationReadOnly: true,
+      owner: {
+        select: {
+          id: true,
+          name: true,
+          email: true
+        }
+      }
     }
   });
 
+  if (!updatedDocument) {
+    return { status: "document-not-found" as const };
+  }
+
   return {
     status: "restored" as const,
-    document: updatedDocument
+    document: {
+      ...updatedDocument,
+      isOwner: updatedDocument.ownerId === input.ownerId,
+      isReadOnly:
+        updatedDocument.ownerId !== input.ownerId &&
+        updatedDocument.isCollaborationReadOnly,
+      accessCode: updatedDocument.isCollaborationEnabled ? updatedDocument.id : null
+    }
   };
 }
 
