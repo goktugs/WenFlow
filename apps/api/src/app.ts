@@ -1,6 +1,7 @@
 import cors from "cors";
 import express from "express";
 import { authRouter } from "./modules/auth/auth.routes.js";
+import { documentRouter } from "./modules/documents/document.routes.js";
 
 export function createApp() {
   const app = express();
@@ -13,6 +14,7 @@ export function createApp() {
   });
 
   app.use("/auth", authRouter);
+  app.use("/documents", documentRouter);
 
   return app;
 }
