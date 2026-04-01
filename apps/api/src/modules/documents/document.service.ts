@@ -76,6 +76,28 @@ export async function renameDocument(id: string, ownerId: string, title: string)
   });
 }
 
+export async function updateDocument(
+  id: string,
+  ownerId: string,
+  input: {
+    title?: string;
+    contentJson?: unknown;
+  }
+) {
+  return prisma.document.updateMany({
+    where: {
+      id,
+      ownerId
+    },
+    data: {
+      ...(typeof input.title !== "undefined" ? { title: input.title.trim() } : {}),
+      ...(typeof input.contentJson !== "undefined"
+        ? { contentJson: input.contentJson as Prisma.InputJsonValue }
+        : {})
+    }
+  });
+}
+
 export async function softDeleteDocument(id: string, ownerId: string) {
   return prisma.document.updateMany({
     where: {

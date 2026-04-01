@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
@@ -15,6 +15,8 @@ type SlashCommand = {
 type EditorShellProps = {
   documentId: string;
   initialContent: unknown;
+  onContentChange: (contentJson: unknown) => void;
+  saveState: "idle" | "saving" | "saved" | "error";
 };
 
 type SlashState = {
@@ -22,8 +24,14 @@ type SlashState = {
   range: { from: number; to: number };
 };
 
-export function EditorShell({ documentId, initialContent }: EditorShellProps) {
+export function EditorShell({
+  documentId,
+  initialContent,
+  onContentChange,
+  saveState
+}: EditorShellProps) {
   const [slashState, setSlashState] = useState<SlashState | null>(null);
+  const hydratedDocumentIdRef = useRef<string | null>(null);
 
   const editor = useEditor(
     {
@@ -60,6 +68,7 @@ export function EditorShell({ documentId, initialContent }: EditorShellProps) {
       },
       onUpdate: ({ editor: currentEditor }) => {
         setSlashState(getSlashState(currentEditor));
+        onContentChange(currentEditor.getJSON());
       }
     },
     [documentId]
@@ -67,6 +76,10 @@ export function EditorShell({ documentId, initialContent }: EditorShellProps) {
 
   useEffect(() => {
     if (!editor) {
+      return;
+    }
+
+    if (hydratedDocumentIdRef.current === documentId) {
       return;
     }
 
@@ -82,6 +95,7 @@ export function EditorShell({ documentId, initialContent }: EditorShellProps) {
         };
 
     editor.commands.setContent(nextContent);
+    hydratedDocumentIdRef.current = documentId;
     setSlashState(null);
   }, [documentId, editor, initialContent]);
 
@@ -164,6 +178,15 @@ export function EditorShell({ documentId, initialContent }: EditorShellProps) {
           <p className="mt-1 text-sm text-muted-foreground">
             Slash commands: `/heading`, `/bullet`, `/code`
           </p>
+        </div>
+        <div className="rounded-full border border-border bg-background/70 px-3 py-1 text-xs text-muted-foreground">
+          {saveState === "saving"
+            ? "Saving..."
+            : saveState === "saved"
+              ? "Saved"
+              : saveState === "error"
+                ? "Save failed"
+                : "Idle"}
         </div>
       </div>
 
