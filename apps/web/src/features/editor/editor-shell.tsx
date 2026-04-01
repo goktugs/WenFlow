@@ -19,10 +19,16 @@ type SlashCommand = {
 type EditorShellProps = {
   documentId: string;
   token: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+  };
   syncState: "connecting" | "connected" | "disconnected" | "error";
   onSyncStateChange: (
     nextState: "connecting" | "connected" | "disconnected" | "error"
   ) => void;
+  onPresenceChange: (users: Array<{ id: string; label: string }>) => void;
 };
 
 type SlashState = {
@@ -33,8 +39,10 @@ type SlashState = {
 export function EditorShell({
   documentId,
   token,
+  user,
   syncState,
-  onSyncStateChange
+  onSyncStateChange,
+  onPresenceChange
 }: EditorShellProps) {
   const [slashState, setSlashState] = useState<SlashState | null>(null);
   const resources = useMemo(() => {
@@ -64,15 +72,50 @@ export function EditorShell({
       }
     });
 
+    const awareness = provider.awareness;
+
+    if (!awareness) {
+      return { ydoc, provider };
+    }
+
+    awareness.setLocalStateField("user", {
+      id: user.id,
+      label: user.name || user.email.split("@")[0]
+    });
+
+    const handleAwarenessChange = () => {
+      const states = Array.from(awareness.getStates().values());
+      const users = states
+        .map((state) => state.user as { id?: string; label?: string } | undefined)
+        .filter(
+          (
+            awarenessUser
+          ): awarenessUser is {
+            id: string;
+            label: string;
+          } => Boolean(awarenessUser?.id && awarenessUser.label)
+        );
+
+      const uniqueUsers = Array.from(
+        new Map(users.map((awarenessUser) => [awarenessUser.id, awarenessUser])).values()
+      );
+
+      onPresenceChange(uniqueUsers);
+    };
+
+    awareness.on("change", handleAwarenessChange);
+    handleAwarenessChange();
+
     return { ydoc, provider };
-  }, [documentId, onSyncStateChange, token]);
+  }, [documentId, onPresenceChange, onSyncStateChange, token, user.email, user.id, user.name]);
 
   useEffect(() => {
     return () => {
+      onPresenceChange([]);
       resources.provider.destroy();
       resources.ydoc.destroy();
     };
-  }, [resources]);
+  }, [onPresenceChange, resources]);
 
   const editor = useEditor(
     {
