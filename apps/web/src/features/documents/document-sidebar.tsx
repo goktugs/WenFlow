@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { DocumentListItem } from "./document.types";
 import type { ViewMode } from "./document.store";
 
@@ -29,6 +31,18 @@ export function DocumentSidebar({
   onSelectDocument,
   onChangeViewMode
 }: DocumentSidebarProps) {
+  const filteredDocuments = documents.filter((document) => {
+    if (viewMode === "trash") {
+      return document.isOwner;
+    }
+
+    if (viewMode === "shared") {
+      return !document.isOwner;
+    }
+
+    return document.isOwner;
+  });
+
   return (
     <aside className="flex flex-col rounded-3xl border border-border bg-card/95 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
       <div className="space-y-4 border-b border-border pb-4">
@@ -62,38 +76,36 @@ export function DocumentSidebar({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            variant={viewMode === "active" ? "default" : "outline"}
-            onClick={() => onChangeViewMode("active")}
-          >
-            Documents
-          </Button>
-          <Button
-            variant={viewMode === "trash" ? "default" : "outline"}
-            onClick={() => onChangeViewMode("trash")}
-          >
-            Trash
-          </Button>
-        </div>
+        <Tabs value={viewMode} onValueChange={(value) => onChangeViewMode(value as ViewMode)}>
+          <TabsList>
+            <TabsTrigger value="my-docs">My Docs</TabsTrigger>
+            <TabsTrigger value="shared">Shared With Me</TabsTrigger>
+            <TabsTrigger value="trash">Trash</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       <div className="mt-4 flex-1 overflow-y-auto">
         {isLoadingList ? (
-          <p className="px-2 text-sm text-muted-foreground">Loading documents...</p>
+          <div className="flex flex-col items-center justify-center gap-3 px-2 py-10 text-sm text-muted-foreground">
+            <Spinner className="size-7" />
+            <p>Loading documents...</p>
+          </div>
         ) : listError ? (
           <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-6 text-sm text-destructive">
             {listError}
           </div>
-        ) : documents.length === 0 ? (
+        ) : filteredDocuments.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
-            {viewMode === "active"
-              ? "No documents yet. Create your first one from the sidebar."
-              : "Trash is empty."}
+            {viewMode === "my-docs"
+              ? "You haven't created any documents yet."
+              : viewMode === "shared"
+                ? "No documents have been shared with you yet."
+                : "Trash is empty."}
           </div>
         ) : (
           <div className="space-y-2">
-            {documents.map((document) => (
+            {filteredDocuments.map((document) => (
               <button
                 key={document.id}
                 className={`w-full rounded-2xl border px-3 py-3 text-left transition ${

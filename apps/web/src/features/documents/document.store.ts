@@ -18,7 +18,7 @@ import type {
   DocumentVersion
 } from "./document.types";
 
-export type ViewMode = "active" | "trash";
+export type ViewMode = "my-docs" | "shared" | "trash";
 export type SyncState = "connecting" | "connected" | "disconnected" | "error";
 export type PresenceUser = {
   id: string;
@@ -89,7 +89,7 @@ type DocumentStoreState = {
 };
 
 export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
-  viewMode: "active",
+  viewMode: "my-docs",
   documents: [],
   selectedId: null,
   selectedDocument: null,
@@ -240,7 +240,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       const document = await createDocument(token);
       toast.success("Document created");
       set({
-        viewMode: "active",
+        viewMode: "my-docs",
         selectedId: document.id
       });
     } catch (error) {
@@ -259,7 +259,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       toast.success("Joined shared document");
       set({
         joinPassword: "",
-        viewMode: "active",
+        viewMode: "my-docs",
         selectedId: document.id
       });
       navigateToApp();

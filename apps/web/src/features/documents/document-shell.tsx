@@ -91,7 +91,7 @@ export function DocumentShell() {
       return;
     }
 
-    setViewMode("active");
+    setViewMode("my-docs");
   }, [setViewMode, shareDocumentId]);
 
   useEffect(() => {
@@ -115,7 +115,7 @@ export function DocumentShell() {
     }
 
     await createDocumentAction(token);
-    await loadDocuments(token, "active", shareDocumentId);
+    await loadDocuments(token, "my-docs", shareDocumentId);
   }
 
   async function handleJoinSharedDocument() {
@@ -126,7 +126,7 @@ export function DocumentShell() {
     await joinSharedDocumentAction(token, shareDocumentId, () => {
       navigate("/app", { replace: true });
     });
-    await loadDocuments(token, "active", null);
+    await loadDocuments(token, "my-docs", null);
   }
 
   async function handleCopyShareLink() {

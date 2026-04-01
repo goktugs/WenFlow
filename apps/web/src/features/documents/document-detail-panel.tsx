@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Spinner } from "@/components/ui/spinner";
 import { EditorShell } from "@/features/editor/editor-shell";
 import type { AuthUser } from "@/features/auth/auth.types";
 import type { PresenceUser, SyncState, ViewMode } from "./document.store";
@@ -78,7 +79,8 @@ export function DocumentDetailPanel({
           Select a document to continue.
         </div>
       ) : isLoadingDetail ? (
-        <div className="flex h-full min-h-[60vh] items-center justify-center rounded-2xl border border-dashed border-border text-sm text-muted-foreground">
+        <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border text-sm text-muted-foreground">
+          <Spinner className="size-8" />
           Loading document...
         </div>
       ) : detailError ? (
@@ -102,7 +104,7 @@ export function DocumentDetailPanel({
                 </h2>
               </div>
 
-              {viewMode === "active" && selectedDocument.isOwner ? (
+              {viewMode !== "trash" && selectedDocument.isOwner ? (
                 <Button disabled={isMutating} onClick={onDeleteDocument} variant="outline">
                   Move to trash
                 </Button>
@@ -115,7 +117,7 @@ export function DocumentDetailPanel({
               ) : null}
             </div>
 
-            {viewMode === "active" && selectedDocument.isOwner ? (
+            {viewMode !== "trash" && selectedDocument.isOwner ? (
               <div className="flex max-w-xl gap-3">
                 <Input
                   value={renameValue}
@@ -123,6 +125,7 @@ export function DocumentDetailPanel({
                   placeholder="Document title"
                 />
                 <Button disabled={isSavingTitle} onClick={onRenameDocument}>
+                  {isSavingTitle ? <Spinner className="size-5" /> : null}
                   {isSavingTitle ? "Saving..." : "Rename"}
                 </Button>
               </div>
@@ -140,7 +143,7 @@ export function DocumentDetailPanel({
             />
           </div>
 
-          {viewMode === "active" ? (
+          {viewMode !== "trash" ? (
             <div className="rounded-2xl border border-border bg-background/60 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -194,6 +197,7 @@ export function DocumentDetailPanel({
                         disabled={isUpdatingCollaboration}
                         onClick={onEnableCollaboration}
                       >
+                        {isUpdatingCollaboration ? <Spinner className="size-5" /> : null}
                         {isUpdatingCollaboration
                           ? "Saving..."
                           : selectedDocument.isCollaborationEnabled
@@ -229,7 +233,7 @@ export function DocumentDetailPanel({
             onRestoreVersion={onRestoreVersion}
           />
 
-          {viewMode === "active" ? (
+          {viewMode !== "trash" ? (
             <EditorShell
               documentId={selectedDocument.id}
               onPresenceChange={onPresenceChange}
@@ -333,7 +337,10 @@ function VersionHistoryCard({
 
       <div className="mt-4 space-y-2">
         {isLoadingVersions ? (
-          <p className="text-sm text-muted-foreground">Loading versions...</p>
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <Spinner className="size-6" />
+            <p>Loading versions...</p>
+          </div>
         ) : versions.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
             No saved versions yet.
@@ -359,6 +366,9 @@ function VersionHistoryCard({
                 size="sm"
                 variant="outline"
               >
+                {isRestoringVersion && restoringVersionId === version.id ? (
+                  <Spinner className="size-4" />
+                ) : null}
                 {isRestoringVersion && restoringVersionId === version.id
                   ? "Restoring..."
                   : "Restore"}
