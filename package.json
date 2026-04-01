@@ -12,7 +12,10 @@
     "dev:collab": "npm run dev --workspace @wenflow/collab",
     "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
   },
   "devDependencies": {
     "@types/node": "^18.19.100",
