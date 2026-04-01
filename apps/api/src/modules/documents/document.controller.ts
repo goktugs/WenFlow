@@ -128,7 +128,8 @@ export async function updateDocumentCollaborationHandler(
       documentId,
       ownerId,
       enabled: input.enabled,
-      password: input.password
+      password: input.password,
+      readOnly: input.readOnly
     });
 
     if (result.status === "not-found") {

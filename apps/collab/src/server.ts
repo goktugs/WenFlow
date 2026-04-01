@@ -90,13 +90,18 @@ const server = new Server({
         ]
       },
       select: {
-        id: true
+        id: true,
+        ownerId: true,
+        isCollaborationReadOnly: true
       }
     });
 
     if (!document) {
       throw new Error("Not authorized");
     }
+
+    data.connectionConfig.readOnly =
+      document.isCollaborationReadOnly && document.ownerId !== payload.sub;
 
     return {
       user: {

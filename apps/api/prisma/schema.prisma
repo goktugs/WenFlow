@@ -27,6 +27,7 @@ model Document {
   contentJson              Json?
   collaborationState       Bytes?
   isCollaborationEnabled   Boolean              @default(false)
+  isCollaborationReadOnly  Boolean              @default(false)
   collaborationPasswordHash String?
   collaborators            DocumentMembership[]
   versions                 DocumentVersion[]

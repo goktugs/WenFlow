@@ -22,6 +22,7 @@ type EditorShellProps = {
   documentId: string;
   restoredContent: unknown | null;
   restoreNonce: number;
+  isReadOnly: boolean;
   token: string;
   user: {
     id: string;
@@ -52,6 +53,7 @@ export function EditorShell({
   documentId,
   restoredContent,
   restoreNonce,
+  isReadOnly,
   token,
   user,
   syncState,
@@ -208,6 +210,7 @@ export function EditorShell({
             'Type "/" for commands, or start writing your document here...'
         })
       ],
+      editable: !isReadOnly,
       editorProps: {
         attributes: {
           class:
@@ -221,7 +224,7 @@ export function EditorShell({
               name: user.name || user.email.split("@")[0],
               label: user.name || user.email.split("@")[0],
               color: localUserColor,
-              status: "editing"
+              status: isReadOnly ? "viewing" : "editing"
             });
 
             return false;
@@ -240,13 +243,21 @@ export function EditorShell({
         }
       },
       onSelectionUpdate: ({ editor: currentEditor }) => {
+        if (isReadOnly) {
+          setSlashState(null);
+          return;
+        }
         setSlashState(getSlashState(currentEditor, editorWrapperRef.current));
       },
       onUpdate: ({ editor: currentEditor }) => {
+        if (isReadOnly) {
+          setSlashState(null);
+          return;
+        }
         setSlashState(getSlashState(currentEditor, editorWrapperRef.current));
       }
     },
-    [documentId, localUserColor, resources, user.email, user.id, user.name]
+    [documentId, isReadOnly, localUserColor, resources, user.email, user.id, user.name]
   );
 
   useEffect(() => {
@@ -255,6 +266,17 @@ export function EditorShell({
     }
     setSlashState(null);
   }, [documentId, editor]);
+
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+
+    editor.setEditable(!isReadOnly);
+    if (isReadOnly) {
+      setSlashState(null);
+    }
+  }, [editor, isReadOnly]);
 
   useEffect(() => {
     if (!editor || restoreNonce === 0) {
@@ -348,7 +370,9 @@ export function EditorShell({
             Editor
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Slash commands: `/heading`, `/bullet`, `/code`
+            {isReadOnly
+              ? "Read-only access. Editing is disabled for this shared link."
+              : "Slash commands: `/heading`, `/bullet`, `/code`"}
           </p>
         </div>
         <div className="rounded-full border border-border bg-background/70 px-3 py-1 text-xs text-muted-foreground">

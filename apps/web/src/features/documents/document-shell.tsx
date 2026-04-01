@@ -21,6 +21,9 @@ export function DocumentShell() {
   const collaborationPassword = useDocumentStore(
     (state) => state.collaborationPassword
   );
+  const collaborationReadOnly = useDocumentStore(
+    (state) => state.collaborationReadOnly
+  );
   const isLoadingList = useDocumentStore((state) => state.isLoadingList);
   const isLoadingDetail = useDocumentStore((state) => state.isLoadingDetail);
   const isSavingTitle = useDocumentStore((state) => state.isSavingTitle);
@@ -51,6 +54,9 @@ export function DocumentShell() {
   const setJoinPassword = useDocumentStore((state) => state.setJoinPassword);
   const setCollaborationPassword = useDocumentStore(
     (state) => state.setCollaborationPassword
+  );
+  const setCollaborationReadOnly = useDocumentStore(
+    (state) => state.setCollaborationReadOnly
   );
   const setSyncState = useDocumentStore((state) => state.setSyncState);
   const setPresentUsers = useDocumentStore((state) => state.setPresentUsers);
@@ -302,6 +308,7 @@ export function DocumentShell() {
 
         <DocumentDetailPanel
           collaborationPassword={collaborationPassword}
+          collaborationReadOnly={collaborationReadOnly}
           detailError={detailError}
           isLoadingDetail={isLoadingDetail}
           isLoadingVersions={isLoadingVersions}
@@ -311,6 +318,7 @@ export function DocumentShell() {
           isSavingTitle={isSavingTitle}
           isUpdatingCollaboration={isUpdatingCollaboration}
           onCollaborationPasswordChange={setCollaborationPassword}
+          onCollaborationReadOnlyChange={setCollaborationReadOnly}
           onCopyShareLink={handleCopyShareLink}
           onDeleteDocument={handleDeleteDocument}
           onDisableCollaboration={handleDisableCollaboration}

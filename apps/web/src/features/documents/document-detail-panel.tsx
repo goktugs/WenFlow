@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import { EditorShell } from "@/features/editor/editor-shell";
 import type { AuthUser } from "@/features/auth/auth.types";
 import type { PresenceUser, SyncState, ViewMode } from "./document.store";
@@ -17,6 +18,7 @@ type DocumentDetailPanelProps = {
   renameValue: string;
   isSavingTitle: boolean;
   collaborationPassword: string;
+  collaborationReadOnly: boolean;
   isUpdatingCollaboration: boolean;
   presentUsers: PresenceUser[];
   isLoadingVersions: boolean;
@@ -32,6 +34,7 @@ type DocumentDetailPanelProps = {
   passwordSlots: number[];
   onRenameValueChange: (value: string) => void;
   onCollaborationPasswordChange: (value: string) => void;
+  onCollaborationReadOnlyChange: (value: boolean) => void;
   onDeleteDocument: () => void;
   onRestoreDocument: () => void;
   onRenameDocument: () => void;
@@ -54,6 +57,7 @@ export function DocumentDetailPanel({
   renameValue,
   isSavingTitle,
   collaborationPassword,
+  collaborationReadOnly,
   isUpdatingCollaboration,
   presentUsers,
   isLoadingVersions,
@@ -69,6 +73,7 @@ export function DocumentDetailPanel({
   passwordSlots,
   onRenameValueChange,
   onCollaborationPasswordChange,
+  onCollaborationReadOnlyChange,
   onDeleteDocument,
   onRestoreDocument,
   onRenameDocument,
@@ -165,7 +170,11 @@ export function DocumentDetailPanel({
                   </p>
                 </div>
                 <span className="rounded-full border border-border bg-card px-3 py-1 text-xs text-foreground">
-                  {selectedDocument.isCollaborationEnabled ? "Shared" : "Private"}
+                  {selectedDocument.isCollaborationEnabled
+                    ? selectedDocument.isCollaborationReadOnly
+                      ? "Read-only share"
+                      : "Shared"
+                    : "Private"}
                 </span>
               </div>
 
@@ -182,6 +191,34 @@ export function DocumentDetailPanel({
                       </Button>
                     </div>
                     <div className="space-y-2">
+                      <div className="rounded-2xl border border-border bg-card/70 p-3">
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <p className="text-sm font-medium text-foreground">
+                              Share mode
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Choose whether collaborators can edit or only view.
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                                collaborationReadOnly
+                                  ? "border border-amber-500/30 bg-amber-500/15 text-amber-200"
+                                  : "border border-emerald-500/30 bg-emerald-500/15 text-emerald-200"
+                              }`}
+                            >
+                              {collaborationReadOnly ? "Read-only" : "Editable"}
+                            </span>
+                            <Switch
+                              aria-label="Toggle read-only sharing"
+                              checked={collaborationReadOnly}
+                              onCheckedChange={onCollaborationReadOnlyChange}
+                            />
+                          </div>
+                        </div>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {selectedDocument.isCollaborationEnabled
                           ? "Set a new 4-digit collaboration password"
@@ -224,9 +261,23 @@ export function DocumentDetailPanel({
                     </div>
                   </>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Owner: {selectedDocument.owner.name} ({selectedDocument.owner.email})
-                  </p>
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Owner: {selectedDocument.owner.name} ({selectedDocument.owner.email})
+                    </p>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-1.5 text-xs">
+                      <span className="text-muted-foreground">Access</span>
+                      <span
+                        className={`rounded-full px-2.5 py-1 font-medium ${
+                          selectedDocument.isReadOnly
+                            ? "border border-amber-500/30 bg-amber-500/15 text-amber-200"
+                            : "border border-emerald-500/30 bg-emerald-500/15 text-emerald-200"
+                        }`}
+                      >
+                        {selectedDocument.isReadOnly ? "Read-only" : "Editable"}
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -236,7 +287,8 @@ export function DocumentDetailPanel({
           <VersionHistoryCard
             isLoadingVersions={isLoadingVersions}
             isSavingVersion={isSavingVersion}
-            canSaveVersion={viewMode !== "trash"}
+            canSaveVersion={viewMode !== "trash" && !selectedDocument.isReadOnly}
+            canRestoreVersion={!selectedDocument.isReadOnly}
             versions={versions}
             onSaveVersion={onSaveVersion}
             isRestoringVersion={isRestoringVersion}
@@ -247,6 +299,7 @@ export function DocumentDetailPanel({
           {viewMode !== "trash" ? (
             <EditorShell
               documentId={selectedDocument.id}
+              isReadOnly={selectedDocument.isReadOnly}
               restoredContent={editorRestoreContent}
               restoreNonce={editorRestoreNonce}
               onPresenceChange={onPresenceChange}
@@ -326,6 +379,7 @@ function VersionHistoryCard({
   isLoadingVersions,
   isSavingVersion,
   canSaveVersion,
+  canRestoreVersion,
   versions,
   onSaveVersion,
   isRestoringVersion,
@@ -335,6 +389,7 @@ function VersionHistoryCard({
   isLoadingVersions: boolean;
   isSavingVersion: boolean;
   canSaveVersion: boolean;
+  canRestoreVersion: boolean;
   versions: DocumentVersion[];
   onSaveVersion: () => void;
   isRestoringVersion: boolean;
@@ -387,7 +442,7 @@ function VersionHistoryCard({
               </div>
 
               <Button
-                disabled={isRestoringVersion}
+                disabled={isRestoringVersion || !canRestoreVersion}
                 onClick={() => onRestoreVersion(version.id)}
                 size="sm"
                 variant="outline"

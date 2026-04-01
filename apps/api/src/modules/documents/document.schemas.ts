@@ -18,7 +18,8 @@ export const updateDocumentSchema = z.object({
 export const updateDocumentCollaborationSchema = z
   .object({
     enabled: z.boolean(),
-    password: z.string().trim().min(4).max(200).optional()
+    password: z.string().trim().min(4).max(200).optional(),
+    readOnly: z.boolean().optional()
   })
   .superRefine((value, context) => {
     if (value.enabled && !value.password) {

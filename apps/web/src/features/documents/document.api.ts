@@ -82,6 +82,7 @@ export async function updateDocumentCollaboration(
   input: {
     enabled: boolean;
     password?: string;
+    readOnly?: boolean;
   }
 ) {
   const result = await apiRequest<{ document: DocumentDetail }>(

@@ -36,6 +36,7 @@ type DocumentStoreState = {
   renameValue: string;
   joinPassword: string;
   collaborationPassword: string;
+  collaborationReadOnly: boolean;
   isLoadingList: boolean;
   isLoadingDetail: boolean;
   isSavingTitle: boolean;
@@ -58,6 +59,7 @@ type DocumentStoreState = {
   setRenameValue: (renameValue: string) => void;
   setJoinPassword: (joinPassword: string) => void;
   setCollaborationPassword: (collaborationPassword: string) => void;
+  setCollaborationReadOnly: (collaborationReadOnly: boolean) => void;
   setSyncState: (syncState: SyncState) => void;
   setPresentUsers: (presentUsers: PresenceUser[]) => void;
   resetSelectionState: () => void;
@@ -101,6 +103,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   renameValue: "",
   joinPassword: "",
   collaborationPassword: "",
+  collaborationReadOnly: false,
   isLoadingList: true,
   isLoadingDetail: false,
   isSavingTitle: false,
@@ -133,6 +136,9 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   setCollaborationPassword(collaborationPassword) {
     set({ collaborationPassword });
   },
+  setCollaborationReadOnly(collaborationReadOnly) {
+    set({ collaborationReadOnly });
+  },
   setSyncState(syncState) {
     set({ syncState });
   },
@@ -144,6 +150,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       selectedDocument: null,
       renameValue: "",
       collaborationPassword: "",
+      collaborationReadOnly: false,
       detailError: null,
       syncState: "connecting",
       presentUsers: [],
@@ -164,7 +171,8 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
               deletedAt: nextDocument.deletedAt,
               owner: nextDocument.owner,
               isOwner: nextDocument.isOwner,
-              isCollaborationEnabled: nextDocument.isCollaborationEnabled
+              isCollaborationEnabled: nextDocument.isCollaborationEnabled,
+              isCollaborationReadOnly: nextDocument.isCollaborationReadOnly
             }
           : document
       )
@@ -215,6 +223,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
         selectedDocument: document,
         renameValue: document.title,
         collaborationPassword: "",
+        collaborationReadOnly: document.isCollaborationReadOnly,
         syncState: "connecting",
         presentUsers: [],
         editorRestoreNonce: 0,
@@ -326,14 +335,15 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
     }
   },
   async enableCollaboration(token, document) {
-    const { collaborationPassword } = get();
+    const { collaborationPassword, collaborationReadOnly } = get();
 
     set({ isUpdatingCollaboration: true });
 
     try {
       const updatedDocument = await updateDocumentCollaboration(token, document.id, {
         enabled: true,
-        password: collaborationPassword
+        password: collaborationPassword,
+        readOnly: collaborationReadOnly
       });
       toast.success(
         document.isCollaborationEnabled
@@ -342,7 +352,8 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       );
       set({
         selectedDocument: updatedDocument,
-        collaborationPassword: ""
+        collaborationPassword: "",
+        collaborationReadOnly: updatedDocument.isCollaborationReadOnly
       });
       get().syncDocumentInList(updatedDocument);
     } catch (error) {
@@ -363,7 +374,8 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       toast.success("Shared editing disabled");
       set({
         selectedDocument: updatedDocument,
-        collaborationPassword: ""
+        collaborationPassword: "",
+        collaborationReadOnly: false
       });
       get().syncDocumentInList(updatedDocument);
     } catch (error) {

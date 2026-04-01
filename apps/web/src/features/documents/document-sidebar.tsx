@@ -124,7 +124,11 @@ export function DocumentSidebar({
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {document.isOwner ? "Owner" : `Owner: ${document.owner.name}`}
-                  {document.isCollaborationEnabled ? " · Live collaboration" : ""}
+                  {document.isCollaborationEnabled
+                    ? document.isCollaborationReadOnly
+                      ? " · Read-only share"
+                      : " · Live collaboration"
+                    : ""}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Updated {new Date(document.updatedAt).toLocaleString()}
