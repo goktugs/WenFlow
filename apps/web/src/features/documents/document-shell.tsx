@@ -50,9 +50,9 @@ export function DocumentShell() {
   const [syncState, setSyncState] = useState<
     "connecting" | "connected" | "disconnected" | "error"
   >("connecting");
-  const [presentUsers, setPresentUsers] = useState<Array<{ id: string; label: string }>>(
-    []
-  );
+  const [presentUsers, setPresentUsers] = useState<
+    Array<{ id: string; label: string; color: string }>
+  >([]);
   const [versions, setVersions] = useState<DocumentVersion[]>([]);
 
   useEffect(() => {
@@ -654,7 +654,11 @@ export function DocumentShell() {
                       presentUsers.map((presenceUser) => (
                         <span
                           key={presenceUser.id}
-                          className="rounded-full border border-border bg-card px-3 py-1 text-xs text-foreground"
+                          className="rounded-full border px-3 py-1 text-xs text-foreground"
+                          style={{
+                            borderColor: `${presenceUser.color}66`,
+                            backgroundColor: `${presenceUser.color}1A`
+                          }}
                         >
                           {presenceUser.label}
                         </span>

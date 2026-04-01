@@ -12,6 +12,7 @@
     "@hocuspocus/provider": "^3.4.0",
     "@tiptap/extension-placeholder": "^2.22.3",
     "@tiptap/extension-collaboration": "^2.22.3",
+    "@tiptap/extension-collaboration-cursor": "^2.22.3",
     "@tiptap/react": "^2.22.3",
     "@tiptap/starter-kit": "^2.22.3",
     "class-variance-authority": "^0.7.1",

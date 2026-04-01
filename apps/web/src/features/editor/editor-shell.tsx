@@ -4,6 +4,7 @@ import { HocuspocusProvider } from "@hocuspocus/provider";
 import { EditorContent, useEditor } from "@tiptap/react";
 import Placeholder from "@tiptap/extension-placeholder";
 import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import StarterKit from "@tiptap/starter-kit";
 import { Button } from "@/components/ui/button";
 import { env } from "@/lib/env";
@@ -28,7 +29,9 @@ type EditorShellProps = {
   onSyncStateChange: (
     nextState: "connecting" | "connected" | "disconnected" | "error"
   ) => void;
-  onPresenceChange: (users: Array<{ id: string; label: string }>) => void;
+  onPresenceChange: (
+    users: Array<{ id: string; label: string; color: string }>
+  ) => void;
 };
 
 type SlashState = {
@@ -45,6 +48,7 @@ export function EditorShell({
   onPresenceChange
 }: EditorShellProps) {
   const [slashState, setSlashState] = useState<SlashState | null>(null);
+  const localUserColor = useMemo(() => getUserColor(user.id), [user.id]);
   const resources = useMemo(() => {
     const ydoc = new Y.Doc();
     const provider = new HocuspocusProvider({
@@ -80,20 +84,30 @@ export function EditorShell({
 
     awareness.setLocalStateField("user", {
       id: user.id,
-      label: user.name || user.email.split("@")[0]
+      label: user.name || user.email.split("@")[0],
+      color: localUserColor
     });
 
     const handleAwarenessChange = () => {
       const states = Array.from(awareness.getStates().values());
       const users = states
-        .map((state) => state.user as { id?: string; label?: string } | undefined)
+        .map(
+          (state) =>
+            state.user as
+              | { id?: string; label?: string; color?: string }
+              | undefined
+        )
         .filter(
           (
             awarenessUser
           ): awarenessUser is {
             id: string;
             label: string;
-          } => Boolean(awarenessUser?.id && awarenessUser.label)
+            color: string;
+          } =>
+            Boolean(
+              awarenessUser?.id && awarenessUser.label && awarenessUser.color
+            )
         );
 
       const uniqueUsers = Array.from(
@@ -130,6 +144,14 @@ export function EditorShell({
         Collaboration.configure({
           document: resources.ydoc
         }),
+        CollaborationCursor.configure({
+          provider: resources.provider,
+          user: {
+            id: user.id,
+            name: user.name || user.email.split("@")[0],
+            color: localUserColor
+          }
+        }),
         Placeholder.configure({
           placeholder:
             'Type "/" for commands, or start writing your document here...'
@@ -148,7 +170,7 @@ export function EditorShell({
         setSlashState(getSlashState(currentEditor));
       }
     },
-    [documentId, resources]
+    [documentId, localUserColor, resources, user.email, user.id, user.name]
   );
 
   useEffect(() => {
@@ -306,6 +328,29 @@ export function EditorShell({
       <EditorContent editor={editor} />
     </div>
   );
+}
+
+function getUserColor(userId: string) {
+  const palette = [
+    "#FF6B6B",
+    "#4D96FF",
+    "#6BCB77",
+    "#FFD93D",
+    "#C77DFF",
+    "#FF8E3C",
+    "#2EC4B6",
+    "#F06595",
+    "#90BE6D",
+    "#00B4D8"
+  ];
+
+  let hash = 0;
+
+  for (let index = 0; index < userId.length; index += 1) {
+    hash = (hash * 31 + userId.charCodeAt(index)) >>> 0;
+  }
+
+  return palette[hash % palette.length];
 }
 
 function getSlashState(

@@ -148,3 +148,31 @@ p {
   padding: 1rem;
   font-size: 0.9rem;
 }
+
+.collaboration-cursor__caret {
+  border-left: 2px solid var(--collaboration-color);
+  border-right: 1px solid transparent;
+  margin-left: -1px;
+  margin-right: -1px;
+  pointer-events: none;
+  position: relative;
+  word-break: normal;
+}
+
+.collaboration-cursor__label {
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  border-radius: 999px;
+  background: var(--collaboration-color);
+  color: #0b0b0f;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.28rem 0.45rem;
+  white-space: nowrap;
+}
+
+.collaboration-cursor__selection {
+  background: color-mix(in srgb, var(--collaboration-color) 24%, transparent);
+}
