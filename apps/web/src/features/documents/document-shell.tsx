@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,6 @@ import {
   getDocument,
   listDocuments,
   renameDocument,
-  saveDocumentContent,
   restoreDocument
 } from "./document.api";
 import type { DocumentDetail, DocumentListItem } from "./document.types";
@@ -30,10 +29,9 @@ export function DocumentShell() {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isSavingTitle, setIsSavingTitle] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">(
-    "idle"
-  );
-  const hasPendingContentSaveRef = useRef(false);
+  const [syncState, setSyncState] = useState<
+    "connecting" | "connected" | "disconnected" | "error"
+  >("connecting");
 
   useEffect(() => {
     if (!token) {
@@ -47,8 +45,7 @@ export function DocumentShell() {
     if (!token || !selectedId) {
       setSelectedDocument(null);
       setRenameValue("");
-      setSaveState("idle");
-      hasPendingContentSaveRef.current = false;
+      setSyncState("connecting");
       return;
     }
 
@@ -58,8 +55,7 @@ export function DocumentShell() {
       .then((document) => {
         setSelectedDocument(document);
         setRenameValue(document.title);
-        setSaveState("idle");
-        hasPendingContentSaveRef.current = false;
+        setSyncState("connecting");
       })
       .catch((error) => {
         toast.error(error instanceof Error ? error.message : "Unable to load document");
@@ -69,55 +65,6 @@ export function DocumentShell() {
         setIsLoadingDetail(false);
       });
   }, [selectedId, token]);
-
-  useEffect(() => {
-    if (
-      !token ||
-      !selectedDocument ||
-      selectedDocument.deletedAt ||
-      !hasPendingContentSaveRef.current
-    ) {
-      return;
-    }
-
-    const handle = window.setTimeout(async () => {
-      if (!selectedDocument) {
-        return;
-      }
-
-      setSaveState("saving");
-
-      try {
-        const updatedDocument = await saveDocumentContent(
-          token,
-          selectedDocument.id,
-          selectedDocument.contentJson
-        );
-        setSelectedDocument(updatedDocument);
-        setDocuments((currentDocuments) =>
-          currentDocuments.map((document) =>
-            document.id === updatedDocument.id
-              ? {
-                  ...document,
-                  title: updatedDocument.title,
-                  updatedAt: updatedDocument.updatedAt,
-                  deletedAt: updatedDocument.deletedAt
-                }
-              : document
-          )
-        );
-        setSaveState("saved");
-        hasPendingContentSaveRef.current = false;
-      } catch (error) {
-        setSaveState("error");
-        toast.error(error instanceof Error ? error.message : "Unable to save document");
-      }
-    }, 800);
-
-    return () => {
-      window.clearTimeout(handle);
-    };
-  }, [selectedDocument?.contentJson, selectedDocument?.id, selectedDocument?.deletedAt, token]);
 
   const selectedDocumentMeta = useMemo(
     () => documents.find((document) => document.id === selectedId) ?? null,
@@ -206,21 +153,6 @@ export function DocumentShell() {
     } finally {
       setIsSavingTitle(false);
     }
-  }
-
-  function handleEditorContentChange(contentJson: unknown) {
-    setSelectedDocument((currentDocument) => {
-      if (!currentDocument) {
-        return currentDocument;
-      }
-
-      return {
-        ...currentDocument,
-        contentJson
-      };
-    });
-    hasPendingContentSaveRef.current = true;
-    setSaveState("idle");
   }
 
   async function handleDeleteDocument() {
@@ -410,9 +342,9 @@ export function DocumentShell() {
               {viewMode === "active" ? (
                 <EditorShell
                   documentId={selectedDocument.id}
-                  initialContent={selectedDocument.contentJson}
-                  onContentChange={handleEditorContentChange}
-                  saveState={saveState}
+                  onSyncStateChange={setSyncState}
+                  syncState={syncState}
+                  token={token!}
                 />
               ) : (
                 <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-border bg-background/40 p-10 text-sm text-muted-foreground">

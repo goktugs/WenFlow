@@ -19,15 +19,16 @@ model User {
 }
 
 model Document {
-  id          String            @id @default(cuid())
-  ownerId     String
-  owner       User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  title       String
-  contentJson Json?
-  versions    DocumentVersion[]
-  deletedAt   DateTime?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  id                String            @id @default(cuid())
+  ownerId           String
+  owner             User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title             String
+  contentJson       Json?
+  collaborationState Bytes?
+  versions          DocumentVersion[]
+  deletedAt         DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
   @@index([ownerId, updatedAt])
   @@index([ownerId, deletedAt])
