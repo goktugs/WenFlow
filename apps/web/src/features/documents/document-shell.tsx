@@ -32,6 +32,7 @@ export function DocumentShell() {
   const listError = useDocumentStore((state) => state.listError);
   const detailError = useDocumentStore((state) => state.detailError);
   const isLoadingVersions = useDocumentStore((state) => state.isLoadingVersions);
+  const isSavingVersion = useDocumentStore((state) => state.isSavingVersion);
   const isRestoringVersion = useDocumentStore(
     (state) => state.isRestoringVersion
   );
@@ -73,6 +74,7 @@ export function DocumentShell() {
     (state) => state.disableCollaboration
   );
   const restoreVersionAction = useDocumentStore((state) => state.restoreVersion);
+  const saveVersionAction = useDocumentStore((state) => state.saveVersion);
 
   const shareDocumentId = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -205,6 +207,14 @@ export function DocumentShell() {
     await restoreVersionAction(token, selectedDocument, versionId);
   }
 
+  async function handleSaveVersion() {
+    if (!token || !selectedDocument) {
+      return;
+    }
+
+    await saveVersionAction(token, selectedDocument);
+  }
+
   return (
     <main className="min-h-screen bg-background p-4">
       <div className="mx-auto grid min-h-[calc(100vh-2rem)] max-w-7xl grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
@@ -227,6 +237,7 @@ export function DocumentShell() {
           detailError={detailError}
           isLoadingDetail={isLoadingDetail}
           isLoadingVersions={isLoadingVersions}
+          isSavingVersion={isSavingVersion}
           isMutating={isMutating}
           isRestoringVersion={isRestoringVersion}
           isSavingTitle={isSavingTitle}
@@ -240,6 +251,7 @@ export function DocumentShell() {
           onRenameDocument={handleRenameDocument}
           onRenameValueChange={setRenameValue}
           onRestoreDocument={handleRestoreDocument}
+          onSaveVersion={handleSaveVersion}
           onRestoreVersion={handleRestoreVersion}
           onSyncStateChange={setSyncState}
           passwordSlots={passwordSlots}

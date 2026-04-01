@@ -20,6 +20,7 @@ type DocumentDetailPanelProps = {
   isUpdatingCollaboration: boolean;
   presentUsers: PresenceUser[];
   isLoadingVersions: boolean;
+  isSavingVersion: boolean;
   versions: DocumentVersion[];
   isRestoringVersion: boolean;
   restoringVersionId: string | null;
@@ -37,6 +38,7 @@ type DocumentDetailPanelProps = {
   onCopyShareLink: () => void;
   onEnableCollaboration: () => void;
   onDisableCollaboration: () => void;
+  onSaveVersion: () => void;
   onRestoreVersion: (versionId: string) => void;
   onPresenceChange: (users: PresenceUser[]) => void;
   onSyncStateChange: (state: SyncState) => void;
@@ -55,6 +57,7 @@ export function DocumentDetailPanel({
   isUpdatingCollaboration,
   presentUsers,
   isLoadingVersions,
+  isSavingVersion,
   versions,
   isRestoringVersion,
   restoringVersionId,
@@ -72,6 +75,7 @@ export function DocumentDetailPanel({
   onCopyShareLink,
   onEnableCollaboration,
   onDisableCollaboration,
+  onSaveVersion,
   onRestoreVersion,
   onPresenceChange,
   onSyncStateChange
@@ -231,7 +235,10 @@ export function DocumentDetailPanel({
           <PresenceCard presentUsers={presentUsers} />
           <VersionHistoryCard
             isLoadingVersions={isLoadingVersions}
+            isSavingVersion={isSavingVersion}
+            canSaveVersion={viewMode !== "trash"}
             versions={versions}
+            onSaveVersion={onSaveVersion}
             isRestoringVersion={isRestoringVersion}
             restoringVersionId={restoringVersionId}
             onRestoreVersion={onRestoreVersion}
@@ -317,13 +324,19 @@ function PresenceCard({ presentUsers }: { presentUsers: PresenceUser[] }) {
 
 function VersionHistoryCard({
   isLoadingVersions,
+  isSavingVersion,
+  canSaveVersion,
   versions,
+  onSaveVersion,
   isRestoringVersion,
   restoringVersionId,
   onRestoreVersion
 }: {
   isLoadingVersions: boolean;
+  isSavingVersion: boolean;
+  canSaveVersion: boolean;
   versions: DocumentVersion[];
+  onSaveVersion: () => void;
   isRestoringVersion: boolean;
   restoringVersionId: string | null;
   onRestoreVersion: (versionId: string) => void;
@@ -336,9 +349,16 @@ function VersionHistoryCard({
             Version history
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Snapshot history for this document.
+            Save a version anytime. Live editing also auto-saves a snapshot every 5 minutes.
           </p>
         </div>
+
+        {canSaveVersion ? (
+          <Button disabled={isSavingVersion} onClick={onSaveVersion} size="sm">
+            {isSavingVersion ? <Spinner className="size-4" /> : null}
+            {isSavingVersion ? "Saving..." : "Save version"}
+          </Button>
+        ) : null}
       </div>
 
       <div className="mt-4 space-y-2">

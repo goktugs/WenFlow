@@ -10,6 +10,7 @@ import {
   renameDocument,
   restoreDocument,
   restoreDocumentVersion,
+  saveDocumentVersion,
   updateDocumentCollaboration
 } from "./document.api";
 import type {
@@ -44,6 +45,7 @@ type DocumentStoreState = {
   listError: string | null;
   detailError: string | null;
   isLoadingVersions: boolean;
+  isSavingVersion: boolean;
   isRestoringVersion: boolean;
   restoringVersionId: string | null;
   syncState: SyncState;
@@ -88,6 +90,7 @@ type DocumentStoreState = {
   enableCollaboration: (token: string, document: DocumentDetail) => Promise<void>;
   disableCollaboration: (token: string, document: DocumentDetail) => Promise<void>;
   restoreVersion: (token: string, document: DocumentDetail, versionId: string) => Promise<void>;
+  saveVersion: (token: string, document: DocumentDetail) => Promise<void>;
 };
 
 export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
@@ -107,6 +110,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   listError: null,
   detailError: null,
   isLoadingVersions: false,
+  isSavingVersion: false,
   isRestoringVersion: false,
   restoringVersionId: null,
   syncState: "connecting",
@@ -395,6 +399,26 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
         isRestoringVersion: false,
         restoringVersionId: null
       });
+    }
+  },
+  async saveVersion(token, document) {
+    set({ isSavingVersion: true });
+
+    try {
+      const status = await saveDocumentVersion(token, document.id);
+
+      if (status === "no-changes") {
+        toast.message("No new changes to save");
+      } else {
+        toast.success("Version saved");
+      }
+
+      const nextVersions = await listDocumentVersions(token, document.id);
+      set({ versions: nextVersions });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save version");
+    } finally {
+      set({ isSavingVersion: false });
     }
   }
 }));

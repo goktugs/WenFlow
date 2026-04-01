@@ -48,6 +48,55 @@ export async function listDocumentVersions(documentId: string, ownerId: string) 
   });
 }
 
+export async function saveCurrentDocumentVersion(input: {
+  documentId: string;
+  userId: string;
+}) {
+  const document = await prisma.document.findFirst({
+    where: getAccessibleDocumentWhere(input.documentId, input.userId),
+    select: {
+      id: true,
+      title: true,
+      contentJson: true
+    }
+  });
+
+  if (!document) {
+    return { status: "document-not-found" as const };
+  }
+
+  const lastVersion = await prisma.documentVersion.findFirst({
+    where: {
+      documentId: input.documentId
+    },
+    orderBy: {
+      versionNumber: "desc"
+    },
+    select: {
+      titleSnapshot: true,
+      contentSnapshot: true
+    }
+  });
+
+  const matchesLatestSnapshot =
+    lastVersion?.titleSnapshot === document.title &&
+    JSON.stringify(lastVersion.contentSnapshot ?? null) ===
+      JSON.stringify(document.contentJson ?? null);
+
+  if (matchesLatestSnapshot) {
+    return { status: "no-changes" as const };
+  }
+
+  await createDocumentVersion({
+    documentId: document.id,
+    createdByUserId: input.userId,
+    titleSnapshot: document.title,
+    contentSnapshot: document.contentJson
+  });
+
+  return { status: "saved" as const };
+}
+
 export async function maybeCreateDocumentVersion(input: {
   documentId: string;
   ownerId: string;

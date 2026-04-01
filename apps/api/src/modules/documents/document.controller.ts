@@ -136,9 +136,38 @@ export async function updateDocumentCollaborationHandler(
       return;
     }
 
+    if (!input.enabled) {
+      await disconnectCollaborators(documentId, ownerId);
+    }
+
     response.json({ document: result.document });
   } catch (error) {
     handleDocumentError(error, response);
+  }
+}
+
+async function disconnectCollaborators(documentId: string, ownerId: string) {
+  const collabPort = Number(process.env.COLLAB_PORT ?? 4001);
+  const jwtSecret = process.env.JWT_SECRET;
+
+  if (!jwtSecret) {
+    return;
+  }
+
+  try {
+    await fetch(
+      `http://localhost:${collabPort}/internal/documents/${documentId}/disconnect-collaborators`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${jwtSecret}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ ownerId })
+      }
+    );
+  } catch (error) {
+    console.error("Unable to disconnect collaborators", error);
   }
 }
 

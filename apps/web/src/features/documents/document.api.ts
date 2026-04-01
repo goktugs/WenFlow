@@ -124,6 +124,18 @@ export async function listDocumentVersions(token: string, id: string) {
   return result.versions;
 }
 
+export async function saveDocumentVersion(token: string, id: string) {
+  const result = await apiRequest<{ status: "saved" | "no-changes" }>(
+    `/documents/${id}/versions`,
+    {
+      method: "POST",
+      token
+    }
+  );
+
+  return result.status;
+}
+
 export async function restoreDocumentVersion(
   token: string,
   documentId: string,

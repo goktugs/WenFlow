@@ -12,6 +12,7 @@ import {
 } from "./document.controller.js";
 import {
   listDocumentVersionsHandler,
+  saveCurrentDocumentVersionHandler,
   restoreDocumentVersionHandler
 } from "../versions/version.controller.js";
 
@@ -28,4 +29,5 @@ documentRouter.post("/:id/restore", restoreDocumentHandler);
 documentRouter.patch("/:id/collaboration", updateDocumentCollaborationHandler);
 documentRouter.post("/:id/join", joinSharedDocumentHandler);
 documentRouter.get("/:id/versions", listDocumentVersionsHandler);
+documentRouter.post("/:id/versions", saveCurrentDocumentVersionHandler);
 documentRouter.post("/:id/versions/:versionId/restore", restoreDocumentVersionHandler);

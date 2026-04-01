@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import type { IncomingMessage } from "node:http";
 import jwt from "jsonwebtoken";
 import { Server } from "@hocuspocus/server";
 import { TiptapTransformer } from "@hocuspocus/transformer";
@@ -35,6 +36,38 @@ const tiptapExtensions = [
 
 const server = new Server({
   port,
+  async onRequest(data) {
+    const requestUrl = new URL(data.request.url ?? "/", "http://localhost");
+    const match = requestUrl.pathname.match(
+      /^\/internal\/documents\/([^/]+)\/disconnect-collaborators$/
+    );
+
+    if (!match || data.request.method !== "POST") {
+      return;
+    }
+
+    const authHeader = data.request.headers.authorization ?? "";
+    const expectedToken = `Bearer ${jwtSecret}`;
+
+    if (authHeader !== expectedToken) {
+      data.response.writeHead(401, { "Content-Type": "application/json" });
+      data.response.end(JSON.stringify({ message: "Unauthorized" }));
+      throw null;
+    }
+
+    const ownerId = await readOwnerIdFromRequest(data.request);
+
+    if (!ownerId) {
+      data.response.writeHead(400, { "Content-Type": "application/json" });
+      data.response.end(JSON.stringify({ message: "ownerId is required" }));
+      throw null;
+    }
+
+    closeCollaboratorConnections(data.instance, match[1], ownerId);
+    data.response.writeHead(200, { "Content-Type": "application/json" });
+    data.response.end(JSON.stringify({ status: "ok" }));
+    throw null;
+  },
   async onAuthenticate(data) {
     const payload = jwt.verify(data.token, jwtSecret) as {
       sub: string;
@@ -240,4 +273,51 @@ function toPrismaJsonValue(value: unknown) {
   return value === null
     ? Prisma.JsonNull
     : (value as Prisma.InputJsonValue | undefined);
+}
+
+function closeCollaboratorConnections(
+  instance: Server["hocuspocus"],
+  documentName: string,
+  ownerId: string
+) {
+  const document = instance.documents.get(documentName);
+
+  if (!document) {
+    return;
+  }
+
+  document.getConnections().forEach((connection) => {
+    const connectionUserId =
+      typeof connection.context?.user?.id === "string"
+        ? connection.context.user.id
+        : null;
+
+    if (connectionUserId && connectionUserId !== ownerId) {
+      connection.close({
+        code: 4403,
+        reason: "Collaboration disabled by the owner"
+      });
+    }
+  });
+}
+
+async function readOwnerIdFromRequest(request: IncomingMessage) {
+  const bodyChunks: Buffer[] = [];
+
+  for await (const chunk of request) {
+    bodyChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+
+  const bodyText = Buffer.concat(bodyChunks).toString("utf8");
+
+  if (!bodyText) {
+    return null;
+  }
+
+  try {
+    const parsedBody = JSON.parse(bodyText) as { ownerId?: unknown };
+    return typeof parsedBody.ownerId === "string" ? parsedBody.ownerId : null;
+  } catch {
+    return null;
+  }
 }
