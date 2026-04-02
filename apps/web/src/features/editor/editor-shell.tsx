@@ -22,6 +22,7 @@ type EditorShellProps = {
   documentId: string;
   restoredContent: unknown | null;
   restoreNonce: number;
+  versionSaveNonce: number;
   isReadOnly: boolean;
   token: string;
   user: {
@@ -41,6 +42,7 @@ type EditorShellProps = {
       status: "viewing" | "editing";
     }>
   ) => void;
+  onVersionSaved: () => void;
 };
 
 type SlashState = {
@@ -53,17 +55,21 @@ export function EditorShell({
   documentId,
   restoredContent,
   restoreNonce,
+  versionSaveNonce,
   isReadOnly,
   token,
   user,
   syncState,
   onSyncStateChange,
-  onPresenceChange
+  onPresenceChange,
+  onVersionSaved
 }: EditorShellProps) {
   const [slashState, setSlashState] = useState<SlashState | null>(null);
+  const [restartNonce, setRestartNonce] = useState(0);
   const localUserColor = useMemo(() => getUserColor(user.id), [user.id]);
   const editorWrapperRef = useRef<HTMLDivElement | null>(null);
   const lastAppliedRestoreNonceRef = useRef(restoreNonce);
+  const lastAppliedVersionSaveNonceRef = useRef(versionSaveNonce);
 
   const buildPresenceUsers = (
     awarenessStates: Map<number, { user?: unknown }>
@@ -132,8 +138,11 @@ export function EditorShell({
       onDisconnect() {
         onSyncStateChange("disconnected");
       },
-      onClose() {
+      onClose({ event }: { event: CloseEvent }) {
         onSyncStateChange("disconnected");
+        if (event.code === 1012) {
+          setRestartNonce((n) => n + 1);
+        }
       },
       onAuthenticationFailed() {
         onSyncStateChange("error");
@@ -155,7 +164,7 @@ export function EditorShell({
     });
 
     return { ydoc, provider };
-  }, [documentId, localUserColor, onSyncStateChange, token, user.email, user.id, user.name]);
+  }, [documentId, localUserColor, onSyncStateChange, restartNonce, token, user.email, user.id, user.name]);
 
   useEffect(() => {
     const awareness = resources.provider.awareness;
@@ -291,6 +300,29 @@ export function EditorShell({
     editor.commands.setContent(normalizeEditorContent(restoredContent), true);
     setSlashState(null);
   }, [editor, restoreNonce, restoredContent]);
+
+  // Bug fix: listen for "version-saved" broadcasts from other collaborators
+  useEffect(() => {
+    const provider = resources.provider;
+    const handleStateless = ({ payload }: { payload: string }) => {
+      if (payload === "version-saved") {
+        onVersionSaved();
+      }
+    };
+    provider.on("stateless", handleStateless);
+    return () => {
+      provider.off("stateless", handleStateless);
+    };
+  }, [resources.provider, onVersionSaved]);
+
+  // Bug fix: broadcast "version-saved" to collaborators when a save completes
+  useEffect(() => {
+    if (lastAppliedVersionSaveNonceRef.current === versionSaveNonce) {
+      return;
+    }
+    lastAppliedVersionSaveNonceRef.current = versionSaveNonce;
+    resources.provider.sendStateless("version-saved");
+  }, [versionSaveNonce, resources.provider]);
 
   const commands = useMemo<SlashCommand[]>(() => {
     if (!editor || !slashState) {

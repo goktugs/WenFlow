@@ -174,6 +174,9 @@ const server = new Server({
       tiptapExtensions
     );
   },
+  onStateless({ payload, document, connection }) {
+    document.broadcastStateless(payload, (conn) => conn !== connection);
+  },
   async onStoreDocument(data) {
     clearExpiredStoreSkips();
 

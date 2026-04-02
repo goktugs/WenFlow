@@ -28,6 +28,7 @@ type DocumentDetailPanelProps = {
   restoringVersionId: string | null;
   editorRestoreNonce: number;
   editorRestoreContent: unknown | null;
+  versionSaveNonce: number;
   syncState: SyncState;
   token: string;
   user: AuthUser;
@@ -46,6 +47,7 @@ type DocumentDetailPanelProps = {
   onRestoreVersion: (versionId: string) => void;
   onPresenceChange: (users: PresenceUser[]) => void;
   onSyncStateChange: (state: SyncState) => void;
+  onVersionSaved: () => void;
 };
 
 export function DocumentDetailPanel({
@@ -68,6 +70,7 @@ export function DocumentDetailPanel({
   restoringVersionId,
   editorRestoreNonce,
   editorRestoreContent,
+  versionSaveNonce,
   syncState,
   token,
   user,
@@ -85,7 +88,8 @@ export function DocumentDetailPanel({
   onSaveVersion,
   onRestoreVersion,
   onPresenceChange,
-  onSyncStateChange
+  onSyncStateChange,
+  onVersionSaved
 }: DocumentDetailPanelProps) {
   return (
     <section className="rounded-3xl border border-border bg-card/95 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
@@ -114,8 +118,10 @@ export function DocumentDetailPanel({
                     isReadOnly={selectedDocument.isReadOnly}
                     restoredContent={editorRestoreContent}
                     restoreNonce={editorRestoreNonce}
+                    versionSaveNonce={versionSaveNonce}
                     onPresenceChange={onPresenceChange}
                     onSyncStateChange={onSyncStateChange}
+                    onVersionSaved={onVersionSaved}
                     syncState={syncState}
                     token={token}
                     user={{
