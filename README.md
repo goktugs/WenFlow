@@ -1,6 +1,3 @@
-[README.md](/Users/goktug/Desktop/projects/WenFlow/README.md)
-
-```md
 # WenFlow
 
 ## Summary
