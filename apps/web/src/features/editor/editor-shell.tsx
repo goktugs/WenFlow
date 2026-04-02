@@ -138,9 +138,9 @@ export function EditorShell({
       onDisconnect() {
         onSyncStateChange("disconnected");
       },
-      onClose({ event }: { event: CloseEvent }) {
+      onClose({ event }) {
         onSyncStateChange("disconnected");
-        if (event.code === 1012) {
+        if (typeof event?.code === "number" && event.code === 1012) {
           setRestartNonce((n) => n + 1);
         }
       },

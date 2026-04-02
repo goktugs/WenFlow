@@ -174,7 +174,7 @@ const server = new Server({
       tiptapExtensions
     );
   },
-  onStateless({ payload, document, connection }) {
+  async onStateless({ payload, document, connection }) {
     document.broadcastStateless(payload, (conn) => conn !== connection);
   },
   async onStoreDocument(data) {
