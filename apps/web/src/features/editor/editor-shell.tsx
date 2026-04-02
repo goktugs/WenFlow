@@ -212,6 +212,21 @@ export function EditorShell({
             id: user.id,
             name: user.name || user.email.split("@")[0],
             color: localUserColor
+          },
+          render(awarenessUser: { id?: string; name?: string; color?: string }) {
+            const cursor = document.createElement("span");
+            // Hide cursors from other tabs of the same user
+            if (awarenessUser.id === user.id) {
+              return cursor;
+            }
+            cursor.classList.add("collaboration-cursor__caret");
+            cursor.setAttribute("style", `border-color: ${awarenessUser.color}`);
+            const label = document.createElement("div");
+            label.classList.add("collaboration-cursor__label");
+            label.setAttribute("style", `background-color: ${awarenessUser.color}`);
+            label.appendChild(document.createTextNode(awarenessUser.name ?? "Guest"));
+            cursor.appendChild(label);
+            return cursor;
           }
         }),
         Placeholder.configure({
