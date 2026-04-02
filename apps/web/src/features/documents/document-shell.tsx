@@ -47,6 +47,7 @@ export function DocumentShell() {
   const editorRestoreContent = useDocumentStore(
     (state) => state.editorRestoreContent
   );
+  const versionSaveNonce = useDocumentStore((state) => state.versionSaveNonce);
 
   const setViewMode = useDocumentStore((state) => state.setViewMode);
   const setSelectedId = useDocumentStore((state) => state.setSelectedId);
@@ -306,6 +307,14 @@ export function DocumentShell() {
     await saveVersionAction(token, selectedDocument);
   }
 
+  async function handleVersionSaved() {
+    if (!token || !selectedId) {
+      return;
+    }
+
+    await loadVersions(token, selectedId);
+  }
+
   return (
     <main className="min-h-screen bg-background p-4">
       <div className="grid min-h-[calc(100vh-2rem)] max-w-[1720px] grid-cols-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
@@ -354,6 +363,8 @@ export function DocumentShell() {
           restoringVersionId={restoringVersionId}
           editorRestoreContent={editorRestoreContent}
           editorRestoreNonce={editorRestoreNonce}
+          versionSaveNonce={versionSaveNonce}
+          onVersionSaved={handleVersionSaved}
           selectedDocument={displayedSelectedDocument}
           selectedId={selectedId}
           syncState={syncState}

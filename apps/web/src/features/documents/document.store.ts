@@ -55,6 +55,7 @@ type DocumentStoreState = {
   versions: DocumentVersion[];
   editorRestoreNonce: number;
   editorRestoreContent: unknown | null;
+  versionSaveNonce: number;
   setViewMode: (viewMode: ViewMode) => void;
   setSelectedId: (selectedId: string | null) => void;
   clearSelection: () => void;
@@ -125,6 +126,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   versions: [],
   editorRestoreNonce: 0,
   editorRestoreContent: null,
+  versionSaveNonce: 0,
   setViewMode(viewMode) {
     set({ viewMode });
   },
@@ -471,6 +473,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
         });
       } else {
         toast.success("Version saved");
+        set((state) => ({ versionSaveNonce: state.versionSaveNonce + 1 }));
       }
 
       const nextVersions = await listDocumentVersions(token, document.id);
