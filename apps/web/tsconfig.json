@@ -5,7 +5,8 @@
     "jsx": "react-jsx",
     "moduleResolution": "Bundler",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@wenflow/shared": ["../../packages/shared/src/index.ts"]
     },
     "types": ["vite/client"]
   },

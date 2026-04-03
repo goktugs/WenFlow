@@ -1,10 +1,12 @@
+import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "../../lib/prisma.js";
 import { env } from "../../config/env.js";
 import type { LoginInput, RegisterInput } from "./auth.schemas.js";
 
-const JWT_EXPIRES_IN = "7d";
+const ACCESS_TOKEN_EXPIRES_IN = "15m";
+const REFRESH_TOKEN_EXPIRES_DAYS = 30;
 const PASSWORD_SALT_ROUNDS = 12;
 
 type AuthUser = {
@@ -17,6 +19,7 @@ type AuthUser = {
 
 export type AuthResult = {
   token: string;
+  refreshToken: string;
   user: AuthUser;
 };
 
@@ -51,8 +54,11 @@ export async function registerUser(input: RegisterInput): Promise<AuthResult> {
     }
   });
 
+  const refreshToken = await createRefreshToken(user.id);
+
   return {
     token: signToken(user.id, user.email),
+    refreshToken,
     user
   };
 }
@@ -72,8 +78,11 @@ export async function loginUser(input: LoginInput): Promise<AuthResult> {
     throw new Error("INVALID_CREDENTIALS");
   }
 
+  const refreshToken = await createRefreshToken(user.id);
+
   return {
     token: signToken(user.id, user.email),
+    refreshToken,
     user: {
       id: user.id,
       email: user.email,
@@ -97,14 +106,74 @@ export async function getCurrentUser(userId: string): Promise<AuthUser | null> {
   });
 }
 
+export async function refreshAccessToken(rawToken: string): Promise<AuthResult> {
+  const tokenHash = hashToken(rawToken);
+
+  const stored = await prisma.refreshToken.findUnique({
+    where: { tokenHash },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      }
+    }
+  });
+
+  if (!stored) {
+    throw new Error("INVALID_REFRESH_TOKEN");
+  }
+
+  if (stored.expiresAt < new Date()) {
+    await prisma.refreshToken.delete({ where: { tokenHash } });
+    throw new Error("INVALID_REFRESH_TOKEN");
+  }
+
+  // Token rotation: delete old, issue new
+  await prisma.refreshToken.delete({ where: { tokenHash } });
+  const newRefreshToken = await createRefreshToken(stored.userId);
+
+  return {
+    token: signToken(stored.userId, stored.user.email),
+    refreshToken: newRefreshToken,
+    user: stored.user
+  };
+}
+
+export async function revokeRefreshToken(rawToken: string): Promise<void> {
+  const tokenHash = hashToken(rawToken);
+  await prisma.refreshToken.deleteMany({ where: { tokenHash } });
+}
+
 export function verifyAccessToken(token: string): JwtPayload {
   return jwt.verify(token, env.jwtSecret) as JwtPayload;
+}
+
+async function createRefreshToken(userId: string): Promise<string> {
+  const rawToken = crypto.randomBytes(40).toString("hex");
+  const tokenHash = hashToken(rawToken);
+  const expiresAt = new Date(
+    Date.now() + REFRESH_TOKEN_EXPIRES_DAYS * 24 * 60 * 60 * 1000
+  );
+
+  await prisma.refreshToken.create({
+    data: { userId, tokenHash, expiresAt }
+  });
+
+  return rawToken;
+}
+
+function hashToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
 }
 
 function signToken(userId: string, email: string) {
   return jwt.sign({ email }, env.jwtSecret, {
     subject: userId,
-    expiresIn: JWT_EXPIRES_IN
+    expiresIn: ACCESS_TOKEN_EXPIRES_IN
   });
 }
-

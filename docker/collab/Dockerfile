@@ -6,6 +6,6 @@ COPY package.json package-lock.json tsconfig.base.json eslint.config.js prettier
 COPY apps ./apps
 COPY packages ./packages
 
-RUN npm ci
+RUN npm ci && npx prisma generate --schema=apps/api/prisma/schema.prisma
 
 EXPOSE 4001

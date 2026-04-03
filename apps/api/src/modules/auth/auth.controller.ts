@@ -3,7 +3,9 @@ import { ZodError } from "zod";
 import {
   getCurrentUser,
   loginUser,
-  registerUser
+  refreshAccessToken,
+  registerUser,
+  revokeRefreshToken
 } from "./auth.service.js";
 import { loginSchema, registerSchema } from "./auth.schemas.js";
 
@@ -47,6 +49,36 @@ export async function meHandler(request: Request, response: Response) {
   response.json({ user });
 }
 
+export async function refreshHandler(request: Request, response: Response) {
+  const { refreshToken } = request.body;
+
+  if (!refreshToken || typeof refreshToken !== "string") {
+    response.status(400).json({ message: "refreshToken is required" });
+    return;
+  }
+
+  try {
+    const result = await refreshAccessToken(refreshToken);
+    response.json(result);
+  } catch (error) {
+    if (error instanceof Error && error.message === "INVALID_REFRESH_TOKEN") {
+      response.status(401).json({ message: "Invalid or expired refresh token" });
+      return;
+    }
+    response.status(500).json({ message: "Internal server error" });
+  }
+}
+
+export async function logoutHandler(request: Request, response: Response) {
+  const { refreshToken } = request.body;
+
+  if (refreshToken && typeof refreshToken === "string") {
+    await revokeRefreshToken(refreshToken).catch(() => {});
+  }
+
+  response.json({ message: "Logged out" });
+}
+
 function handleAuthError(error: unknown, response: Response) {
   if (error instanceof ZodError) {
     response.status(400).json({
@@ -71,4 +103,3 @@ function handleAuthError(error: unknown, response: Response) {
 
   response.status(500).json({ message: "Internal server error" });
 }
-
