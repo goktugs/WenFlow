@@ -15,8 +15,20 @@ model User {
   documents           Document[]           @relation("OwnedDocuments")
   documentMemberships DocumentMembership[]
   versions            DocumentVersion[]    @relation("VersionCreatedBy")
+  refreshTokens       RefreshToken[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Document {
