@@ -139,7 +139,7 @@ export async function updateDocumentCollaborationHandler(
       return;
     }
 
-    await disconnectCollaborators(documentId, ownerId);
+    await disconnectCollaborators(documentId, ownerId, { closeOwner: true });
 
     response.json({ document: result.document });
   } catch (error) {
@@ -147,8 +147,12 @@ export async function updateDocumentCollaborationHandler(
   }
 }
 
-async function disconnectCollaborators(documentId: string, ownerId: string) {
-  const collabPort = Number(process.env.COLLAB_PORT ?? 4001);
+async function disconnectCollaborators(
+  documentId: string,
+  ownerId: string,
+  options?: { closeOwner?: boolean }
+) {
+  const collabUrl = process.env.COLLAB_URL ?? `http://localhost:${process.env.COLLAB_PORT ?? 4001}`;
   const jwtSecret = process.env.JWT_SECRET;
 
   if (!jwtSecret) {
@@ -157,14 +161,14 @@ async function disconnectCollaborators(documentId: string, ownerId: string) {
 
   try {
     await fetch(
-      `http://localhost:${collabPort}/internal/documents/${documentId}/disconnect-collaborators`,
+      `${collabUrl}/internal/documents/${documentId}/disconnect-collaborators`,
       {
         method: "POST",
         headers: {
           Authorization: `Bearer ${jwtSecret}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ ownerId })
+        body: JSON.stringify({ ownerId, closeOwner: options?.closeOwner ?? false })
       }
     );
   } catch (error) {

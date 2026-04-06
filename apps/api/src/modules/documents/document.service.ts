@@ -62,7 +62,8 @@ function getAccessibleDocumentsWhere(userId: string, includeDeleted: boolean) {
 }
 
 function mapDocumentSummary(
-  document: Omit<SelectedDocumentRecord, "contentJson"> & { contentJson?: unknown }
+  document: Omit<SelectedDocumentRecord, "contentJson"> & { contentJson?: unknown },
+  userId: string
 ) {
   return {
     id: document.id,
@@ -71,7 +72,7 @@ function mapDocumentSummary(
     createdAt: document.createdAt,
     updatedAt: document.updatedAt,
     owner: document.owner,
-    isOwner: document.ownerId === document.owner.id,
+    isOwner: document.ownerId === userId,
     isCollaborationEnabled: document.isCollaborationEnabled,
     isCollaborationReadOnly: document.isCollaborationReadOnly
   };
@@ -172,10 +173,7 @@ export async function listDocuments({ userId, includeDeleted }: DocumentListPara
     }
   });
 
-  return documents.map((document) => ({
-    ...mapDocumentSummary(document),
-    isOwner: document.ownerId === userId
-  }));
+  return documents.map((document) => mapDocumentSummary(document, userId));
 }
 
 export async function createDocument(ownerId: string, title?: string) {
@@ -204,10 +202,7 @@ export async function createDocument(ownerId: string, title?: string) {
     }
   });
 
-  return {
-    ...mapDocumentSummary(document),
-    isOwner: true
-  };
+  return mapDocumentSummary(document, ownerId);
 }
 
 export async function getDocumentById(id: string, userId: string) {
@@ -263,29 +258,34 @@ export async function updateDocument(
       ? input.contentJson
       : currentDocument.contentJson;
 
-  await maybeCreateDocumentVersion({
-    documentId: currentDocument.id,
-    ownerId: currentDocument.ownerId,
-    createdByUserId: input.createdByUserId,
-    previousTitle: currentDocument.title,
-    previousContent: currentDocument.contentJson,
-    nextTitle,
-    nextContent
-  });
+  await prisma.$transaction(async (tx) => {
+    await maybeCreateDocumentVersion(
+      {
+        documentId: currentDocument.id,
+        ownerId: currentDocument.ownerId,
+        createdByUserId: input.createdByUserId,
+        previousTitle: currentDocument.title,
+        previousContent: currentDocument.contentJson,
+        nextTitle,
+        nextContent
+      },
+      tx
+    );
 
-  await prisma.document.update({
-    where: {
-      id: currentDocument.id
-    },
-    data: {
-      ...(typeof input.title !== "undefined" ? { title: nextTitle } : {}),
-      ...(typeof input.contentJson !== "undefined"
-        ? {
-            contentJson: input.contentJson as Prisma.InputJsonValue,
-            collaborationState: null
-          }
-        : {})
-    }
+    await tx.document.update({
+      where: {
+        id: currentDocument.id
+      },
+      data: {
+        ...(typeof input.title !== "undefined" ? { title: nextTitle } : {}),
+        ...(typeof input.contentJson !== "undefined"
+          ? {
+              contentJson: input.contentJson as Prisma.InputJsonValue,
+              collaborationState: null
+            }
+          : {})
+      }
+    });
   });
 
   return { status: "updated" as const };
