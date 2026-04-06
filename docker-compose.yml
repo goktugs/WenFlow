@@ -25,6 +25,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/wenflow
       API_PORT: 4000
       JWT_SECRET: change-me
+      COLLAB_URL: http://collab:4001
     ports:
       - "4000:4000"
     depends_on:

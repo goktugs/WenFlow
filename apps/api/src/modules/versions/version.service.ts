@@ -103,15 +103,20 @@ export async function saveCurrentDocumentVersion(input: {
   return { status: "saved" as const };
 }
 
-export async function maybeCreateDocumentVersion(input: {
-  documentId: string;
-  ownerId: string;
-  createdByUserId?: string | null;
-  previousTitle: string;
-  previousContent: unknown;
-  nextTitle: string;
-  nextContent: unknown;
-}) {
+export async function maybeCreateDocumentVersion(
+  input: {
+    documentId: string;
+    ownerId: string;
+    createdByUserId?: string | null;
+    previousTitle: string;
+    previousContent: unknown;
+    nextTitle: string;
+    nextContent: unknown;
+  },
+  tx?: Prisma.TransactionClient
+) {
+  const client = tx ?? prisma;
+
   const titleChanged = input.previousTitle !== input.nextTitle;
   const contentChanged =
     JSON.stringify(input.previousContent ?? null) !==
@@ -121,7 +126,7 @@ export async function maybeCreateDocumentVersion(input: {
     return null;
   }
 
-  const lastVersion = await prisma.documentVersion.findFirst({
+  const lastVersion = await client.documentVersion.findFirst({
     where: {
       documentId: input.documentId
     },
@@ -150,21 +155,29 @@ export async function maybeCreateDocumentVersion(input: {
     }
   }
 
-  return createDocumentVersion({
-    documentId: input.documentId,
-    createdByUserId: input.createdByUserId,
-    titleSnapshot: input.previousTitle,
-    contentSnapshot: input.previousContent
-  });
+  return createDocumentVersion(
+    {
+      documentId: input.documentId,
+      createdByUserId: input.createdByUserId,
+      titleSnapshot: input.previousTitle,
+      contentSnapshot: input.previousContent
+    },
+    client
+  );
 }
 
-export async function createDocumentVersion(input: {
-  documentId: string;
-  createdByUserId?: string | null;
-  titleSnapshot: string;
-  contentSnapshot: unknown;
-}) {
-  const lastVersion = await prisma.documentVersion.findFirst({
+export async function createDocumentVersion(
+  input: {
+    documentId: string;
+    createdByUserId?: string | null;
+    titleSnapshot: string;
+    contentSnapshot: unknown;
+  },
+  tx?: Prisma.TransactionClient
+) {
+  const client = tx ?? prisma;
+
+  const lastVersion = await client.documentVersion.findFirst({
     where: {
       documentId: input.documentId
     },
@@ -178,7 +191,7 @@ export async function createDocumentVersion(input: {
 
   const nextVersionNumber = (lastVersion?.versionNumber ?? 0) + 1;
 
-  return prisma.documentVersion.create({
+  return client.documentVersion.create({
     data: {
       documentId: input.documentId,
       createdByUserId: input.createdByUserId ?? null,

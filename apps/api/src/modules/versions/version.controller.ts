@@ -93,7 +93,7 @@ function getParam(value: string | string[] | undefined) {
 }
 
 async function disconnectActiveConnections(documentId: string, ownerId: string) {
-  const collabPort = Number(process.env.COLLAB_PORT ?? 4001);
+  const collabUrl = process.env.COLLAB_URL ?? `http://localhost:${process.env.COLLAB_PORT ?? 4001}`;
   const jwtSecret = process.env.JWT_SECRET;
 
   if (!jwtSecret) {
@@ -102,7 +102,7 @@ async function disconnectActiveConnections(documentId: string, ownerId: string) 
 
   try {
     await fetch(
-      `http://localhost:${collabPort}/internal/documents/${documentId}/disconnect-collaborators`,
+      `${collabUrl}/internal/documents/${documentId}/disconnect-collaborators`,
       {
         method: "POST",
         headers: {
